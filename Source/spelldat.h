@@ -6,7 +6,10 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
 #include <type_traits>
+
+#include <expected.hpp>
 
 #include "effects.h"
 #include "utils/enum_traits.h"
@@ -84,6 +87,8 @@ enum class SpellID : int8_t {
 	LAST = RuneOfStone,
 	Invalid = -1,
 };
+
+tl::expected<SpellID, std::string> ParseSpellId(std::string_view value);
 
 enum class MagicType : uint8_t {
 	Fire,
@@ -217,7 +222,7 @@ use_enum_as_flags(SpellDataFlags);
 
 struct SpellData {
 	const char *sNameText;
-	_sfx_id sSFX;
+	SfxID sSFX;
 	uint16_t bookCost10;
 	uint8_t staffCost10;
 	uint8_t sManaCost;

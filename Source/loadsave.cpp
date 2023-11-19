@@ -412,9 +412,7 @@ void LoadPlayer(LoadHelper &file, Player &player)
 	player._pBaseVit = file.NextLE<int32_t>();
 	player._pStatPts = file.NextLE<int32_t>();
 	player._pDamageMod = file.NextLE<int32_t>();
-	player._pBaseToBlk = file.NextLE<int32_t>();
-	if (player._pBaseToBlk == 0)
-		player._pBaseToBlk = PlayersData[static_cast<std::size_t>(player._pClass)].blockBonus;
+	file.Skip<int32_t>(); // Skip _pBaseToBlk - always a copy of PlayerData.blockBonus
 	player._pHPBase = file.NextLE<int32_t>();
 	player._pMaxHPBase = file.NextLE<int32_t>();
 	player._pHitPoints = file.NextLE<int32_t>();
@@ -1224,7 +1222,7 @@ void SavePlayer(SaveHelper &file, const Player &player)
 	file.WriteLE<int32_t>(player._pStatPts);
 	file.WriteLE<int32_t>(player._pDamageMod);
 
-	file.WriteLE<int32_t>(player._pBaseToBlk);
+	file.WriteLE<int32_t>(player.getBaseToBlock()); // set _pBaseToBlk for backwards compatibility
 	file.WriteLE<int32_t>(player._pHPBase);
 	file.WriteLE<int32_t>(player._pMaxHPBase);
 	file.WriteLE<int32_t>(player._pHitPoints);
@@ -2402,7 +2400,7 @@ void SaveGameData(SaveWriter &saveWriter)
 	file.WriteBE<int32_t>(ViewPosition.y);
 	file.WriteLE<uint8_t>(invflag ? 1 : 0);
 	file.WriteLE<uint8_t>(chrflag ? 1 : 0);
-	file.WriteBE<int32_t>(ActiveMonsterCount);
+	file.WriteBE(static_cast<int32_t>(ActiveMonsterCount));
 	file.WriteBE<int32_t>(ActiveItemCount);
 	// ActiveMissileCount will be a value from 0-125 (for vanilla compatibility). Writing an unsigned value here to avoid
 	// warnings about casting from unsigned to signed, but there's no sign extension issues when reading this as a signed
@@ -2462,7 +2460,7 @@ void SaveGameData(SaveWriter &saveWriter)
 		for (int i = 0; i < ActiveLightCount; i++)
 			SaveLighting(&file, &Lights[ActiveLights[i]]);
 
-		int visionCount = Players.size();
+		const auto visionCount = static_cast<int32_t>(Players.size());
 		file.WriteBE<int32_t>(visionCount + 1); // VisionId
 		file.WriteBE<int32_t>(visionCount);
 
@@ -2560,7 +2558,7 @@ void SaveLevel(SaveWriter &saveWriter)
 		}
 	}
 
-	file.WriteBE<int32_t>(ActiveMonsterCount);
+	file.WriteBE(static_cast<int32_t>(ActiveMonsterCount));
 	file.WriteBE<int32_t>(ActiveItemCount);
 	file.WriteBE<int32_t>(ActiveObjectCount);
 

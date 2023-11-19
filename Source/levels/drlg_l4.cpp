@@ -304,7 +304,7 @@ void MakeDmt()
 {
 	for (int y = 0; y < DMAXY - 1; y++) {
 		for (int x = 0; x < DMAXX - 1; x++) {
-			int val = (DungeonMask.test(x + 1, y + 1) << 3) | (DungeonMask.test(x, y + 1) << 2) | (DungeonMask.test(x + 1, y) << 1) | DungeonMask.test(x, y);
+			int val = (DungeonMask.test(x + 1, y + 1) << 3) | (DungeonMask.test(x, y + 1) << 2) | (DungeonMask.test(x + 1, y) << 1) | (DungeonMask.test(x, y) << 0);
 			dungeon[x][y] = L4ConvTbl[val];
 		}
 	}
@@ -846,7 +846,7 @@ void Substitution()
 			if (FlipCoin(10)) {
 				uint8_t c = dungeon[x][y];
 				if (L4BTYPES[c] == 6 && !Protected.test(x, y)) {
-					dungeon[x][y] = GenerateRnd(3) + 95;
+					dungeon[x][y] = PickRandomlyAmong({ 95, 96, 97 });
 				}
 			}
 		}

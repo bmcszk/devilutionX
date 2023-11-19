@@ -153,6 +153,8 @@ mark_as_advanced(DEVILUTIONX_PALETTE_TRANSPARENCY_BLACK_16_LUT)
 # Additional features
 option(DISABLE_DEMOMODE "Disable demo mode support" OFF)
 option(DISCORD_INTEGRATION "Build with Discord SDK for rich presence support" OFF)
+option(SCREEN_READER_INTEGRATION "Build with screen reader support" OFF)
+mark_as_advanced(SCREEN_READER_INTEGRATION)
 
 # If both UNPACKED_MPQS and UNPACKED_SAVES are enabled, we completely remove MPQ support.
 if(UNPACKED_MPQS AND UNPACKED_SAVES)
@@ -269,6 +271,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_link_options("$<$<BOOL:${DEVILUTIONX_PROFILE_DIR}>:-fprofile-dir=${DEVILUTIONX_PROFILE_DIR};-fprofile-prefix-path=${CMAKE_CURRENT_BINARY_DIR}>")
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  # u8path() function is deprecated but there is no sensible alternative and it might even get un-deprecated.
+  add_definitions(-D_SILENCE_CXX20_U8PATH_DEPRECATION_WARNING)
+endif()
+
 # Not a genexp because CMake doesn't support it
 # https://gitlab.kitware.com/cmake/cmake/-/issues/20546
 if(NOT DISABLE_LTO)
@@ -335,8 +342,7 @@ else()
       add_custom_command(
         TARGET ${BIN_TARGET} POST_BUILD
         DEPENDS ${BIN_TARGET}
-        COMMAND $<$<CONFIG:Release>:${CMAKE_STRIP}>
-                $<$<CONFIG:MinSizeRel>:${CMAKE_STRIP}>
+        COMMAND $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:${CMAKE_STRIP}>
         ARGS $<TARGET_FILE:${BIN_TARGET}>)
     endif()
 endif()
@@ -441,7 +447,7 @@ if(VITA)
       VERSION ${VITA_VERSION}
       NAME ${VITA_APP_NAME}
       FILE Packaging/vita/sce_sys sce_sys
-      FILE Packaging/resources/assets assets
+      FILE assets assets
       ${VITA_TRANSLATIONS_LIST}
     )
   endif()
@@ -533,7 +539,7 @@ if(CPACK AND (APPLE OR BUILD_ASSETS_MPQ OR SRC_DIST))
       DESTINATION "."
     )
 
-    foreach(_SDL2_WIN32_DLL_PATH ${SDL2_WIN32_ALL_DLLS})
+    foreach(_SDL2_WIN32_DLL_PATH ${SDL2_WIN32_ALL_DLLS} ${WIN32_INSTALL_DLLS})
       install(FILES "${_SDL2_WIN32_DLL_PATH}"
         DESTINATION "."
       )
@@ -547,6 +553,12 @@ if(CPACK AND (APPLE OR BUILD_ASSETS_MPQ OR SRC_DIST))
 
     if(DISCORD_SHARED_LIB)
       install(FILES "${DISCORD_SHARED_LIB}"
+        DESTINATION "."
+      )
+    endif()
+
+    if(SCREEN_READER_INTEGRATION)
+      install(FILES "${Tolk_BINARY_DIR}/libTolk.dll"
         DESTINATION "."
       )
     endif()

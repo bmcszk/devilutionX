@@ -209,7 +209,7 @@ bool MonsterMHit(int pnum, int monsterId, int mindam, int maxdam, int dist, Miss
 	if (!monster.isPossibleToHit() || monster.isImmune(t, damageType))
 		return false;
 
-	int hit = GenerateRnd(100);
+	int hit = RandomIntLessThan(100);
 	int hper = 0;
 	const Player &player = Players[pnum];
 	const MissileData &missileData = GetMissileData(t);
@@ -473,7 +473,7 @@ void CheckMissileCol(Missile &missile, DamageType damageType, int minDamage, int
 	}
 
 	const MissileData &missileData = GetMissileData(missile._mitype);
-	if (missile._mirange == 0 && missileData.miSFX != -1)
+	if (missile._mirange == 0 && missileData.miSFX != SfxID::None)
 		PlaySfxLoc(missileData.miSFX, missile.position.tile);
 }
 
@@ -495,7 +495,7 @@ bool MoveMissile(Missile &missile, tl::function_ref<bool(Point)> checkTile, bool
 	// Did the missile skip a tile?
 	if (possibleVisitTiles > 1) {
 		auto speed = abs(missile.position.velocity);
-		float denominator = (2 * speed.deltaY >= speed.deltaX) ? 2 * speed.deltaY : speed.deltaX;
+		const auto denominator = static_cast<float>((2 * speed.deltaY >= speed.deltaX) ? 2 * speed.deltaY : speed.deltaX);
 		auto incVelocity = missile.position.velocity * ((32 << 16) / denominator);
 		auto traveled = missile.position.traveled - missile.position.velocity;
 		// Adjust the traveled vector to start on the next smallest multiple of incVelocity
@@ -594,10 +594,19 @@ void MoveMissileAndCheckMissileCol(Missile &missile, DamageType damageType, int 
 
 void SetMissAnim(Missile &missile, MissileGraphicID animtype)
 {
-	int dir = missile._mimfnum;
+	const int dir = missile._mimfnum;
 
-	if (animtype > MissileGraphicID::None) {
-		animtype = MissileGraphicID::None;
+	if (animtype >= MissileGraphicID::None) {
+		missile._miAnimType = MissileGraphicID::None;
+		missile._miAnimData = std::nullopt;
+		missile._miAnimWidth = 0;
+		missile._miAnimWidth2 = 0;
+		missile._miAnimFlags = MissileGraphicsFlags::None;
+		missile._miAnimDelay = 0;
+		missile._miAnimLen = 0;
+		missile._miAnimCnt = 0;
+		missile._miAnimFrame = 1;
+		return;
 	}
 
 	const MissileFileData &missileData = GetMissileSpriteData(animtype);
@@ -1268,7 +1277,7 @@ void AddHorkSpawn(Missile &missile, AddMissileParameter &parameter)
 void AddJester(Missile &missile, AddMissileParameter &parameter)
 {
 	MissileID spell = MissileID::Firebolt;
-	switch (GenerateRnd(10)) {
+	switch (RandomIntLessThan(10)) {
 	case 0:
 	case 1:
 		spell = MissileID::Firebolt;
@@ -1359,7 +1368,7 @@ void AddStealPotions(Missile &missile, AddMissileParameter & /*parameter*/)
 				beltItem._iStatFlag = true;
 			}
 			if (!hasPlayedSFX) {
-				PlaySfxLoc(IS_POPPOP2, target);
+				PlaySfxLoc(SfxID::PodPop, target);
 				hasPlayedSFX = true;
 			}
 		}
@@ -1385,7 +1394,7 @@ void AddStealMana(Missile &missile, AddMissileParameter & /*parameter*/)
 		player._pManaBase = player._pMana + player._pMaxManaBase - player._pMaxMana;
 		CalcPlrInv(player, false);
 		RedrawComponent(PanelDrawComponent::Mana);
-		PlaySfxLoc(TSFX_COW7, *trappedPlayerPosition);
+		PlaySfxLoc(SfxID::Pig, *trappedPlayerPosition);
 	}
 
 	missile._miDelFlag = true;
@@ -1497,7 +1506,7 @@ void AddWarp(Missile &missile, AddMissileParameter &parameter)
 void AddLightningWall(Missile &missile, AddMissileParameter &parameter)
 {
 	UpdateMissileVelocity(missile, parameter.dst, 16);
-	missile._miAnimFrame = GenerateRnd(8) + 1;
+	missile._miAnimFrame = RandomIntBetween(1, 8);
 	missile._mirange = 255 * (missile._mispllvl + 1);
 	switch (missile.sourceType()) {
 	case MissileSource::Trap:
@@ -1555,7 +1564,7 @@ void AddLightningBow(Missile &missile, AddMissileParameter &parameter)
 		dst += parameter.midir;
 	}
 	UpdateMissileVelocity(missile, dst, 32);
-	missile._miAnimFrame = GenerateRnd(8) + 1;
+	missile._miAnimFrame = RandomIntBetween(1, 8);
 	missile._mirange = 255;
 	if (missile._misource < 0) {
 		missile.var1 = missile.position.start.x;
@@ -1573,7 +1582,7 @@ void AddMana(Missile &missile, AddMissileParameter & /*parameter*/)
 
 	int manaAmount = (GenerateRnd(10) + 1) << 6;
 	for (int i = 0; i < player.getCharacterLevel(); i++) {
-		manaAmount += (GenerateRnd(4) + 1) << 6;
+		manaAmount += RandomIntBetween(1, 4) << 6;
 	}
 	for (int i = 0; i < missile._mispllvl; i++) {
 		manaAmount += (GenerateRnd(6) + 1) << 6;
@@ -1643,7 +1652,7 @@ void AddChargedBoltBow(Missile &missile, AddMissileParameter &parameter)
 	if (missile.position.start == dst) {
 		dst += parameter.midir;
 	}
-	missile._miAnimFrame = GenerateRnd(8) + 1;
+	missile._miAnimFrame = RandomIntBetween(1, 8);
 	missile._mlid = AddLight(missile.position.start, 5);
 	UpdateMissileVelocity(missile, dst, 8);
 	missile.var1 = 5;
@@ -1699,7 +1708,7 @@ void AddArrow(Missile &missile, AddMissileParameter &parameter)
 		const Player &player = Players[missile._misource];
 
 		if (HasAnyOf(player._pIFlags, ItemSpecialEffect::RandomArrowVelocity)) {
-			av = GenerateRnd(32) + 16;
+			av = RandomIntBetween(16, 47);
 		}
 		if (player._pClass == HeroClass::Rogue)
 			av += (player.getCharacterLevel() - 1) / 4;
@@ -1863,7 +1872,7 @@ void AddTeleport(Missile &missile, AddMissileParameter &parameter)
 void AddNovaBall(Missile &missile, AddMissileParameter &parameter)
 {
 	UpdateMissileVelocity(missile, parameter.dst, 16);
-	missile._miAnimFrame = GenerateRnd(8) + 1;
+	missile._miAnimFrame = RandomIntBetween(1, 8);
 	missile._mirange = 255;
 	const WorldTilePosition position = missile._misource < 0 ? missile.position.start : Players[missile._misource].position.tile;
 	missile.var1 = position.x;
@@ -1913,7 +1922,7 @@ void AddLightningControl(Missile &missile, AddMissileParameter &parameter)
 	missile.var1 = missile.position.start.x;
 	missile.var2 = missile.position.start.y;
 	UpdateMissileVelocity(missile, parameter.dst, 32);
-	missile._miAnimFrame = GenerateRnd(8) + 1;
+	missile._miAnimFrame = RandomIntBetween(1, 8);
 	missile._mirange = 256;
 }
 
@@ -1923,7 +1932,7 @@ void AddLightning(Missile &missile, AddMissileParameter &parameter)
 
 	SyncPositionWithParent(missile, parameter);
 
-	missile._miAnimFrame = GenerateRnd(8) + 1;
+	missile._miAnimFrame = RandomIntBetween(1, 8);
 
 	if (missile._micaster == TARGET_PLAYERS || missile.IsTrap()) {
 		if (missile.IsTrap() || Monsters[missile._misource].type().type == MT_FAMILIAR)
@@ -2611,7 +2620,7 @@ void AddChargedBolt(Missile &missile, AddMissileParameter &parameter)
 	if (missile.position.start == dst) {
 		dst += parameter.midir;
 	}
-	missile._miAnimFrame = GenerateRnd(8) + 1;
+	missile._miAnimFrame = RandomIntBetween(1, 8);
 	missile._mlid = AddLight(missile.position.start, 5);
 
 	UpdateMissileVelocity(missile, dst, 8);
@@ -2708,7 +2717,7 @@ void AddDiabloApocalypse(Missile &missile, AddMissileParameter & /*parameter*/)
 
 Missile *AddMissile(WorldTilePosition src, WorldTilePosition dst, Direction midir, MissileID mitype,
     mienemy_type micaster, int id, int midam, int spllvl,
-    Missile *parent, std::optional<_sfx_id> lSFX)
+    Missile *parent, std::optional<SfxID> lSFX)
 {
 	if (Missiles.size() >= Missiles.max_size()) {
 		return nullptr;
@@ -2748,7 +2757,7 @@ Missile *AddMissile(WorldTilePosition src, WorldTilePosition dst, Direction midi
 		lSFX = missileData.mlSFX;
 	}
 
-	if (*lSFX != SFX_NONE) {
+	if (*lSFX != SfxID::None) {
 		PlaySfxLoc(*lSFX, missile.position.start);
 	}
 
@@ -3175,7 +3184,7 @@ void ProcessSearch(Missile &missile)
 	const Player &player = Players[missile._misource];
 
 	missile._miDelFlag = true;
-	PlaySfxLoc(IS_CAST7, player.position.tile);
+	PlaySfxLoc(SfxID::SpellEnd, player.position.tile);
 	if (&player == MyPlayer)
 		AutoMapShowItems = false;
 }

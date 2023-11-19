@@ -38,9 +38,6 @@
 #include "engine/surface.hpp"
 #include "utils/attributes.h"
 
-#define TILE_WIDTH 64
-#define TILE_HEIGHT 32
-
 namespace devilution {
 
 template <typename V, typename X, typename... Xs>
@@ -54,6 +51,11 @@ DVL_ALWAYS_INLINE constexpr bool IsNoneOf(const V &v, X x, Xs... xs)
 {
 	return v != x && ((v != xs) && ...);
 }
+
+/**
+ * @brief Fill a rectangle with the given color.
+ */
+void FillRect(const Surface &out, int x, int y, int width, int height, uint8_t colorIndex);
 
 /**
  * @brief Draw a horizontal line segment in the target buffer (left to right)
@@ -80,8 +82,7 @@ void DrawVerticalLine(const Surface &out, Point from, int height, std::uint8_t c
 void UnsafeDrawVerticalLine(const Surface &out, Point from, int height, std::uint8_t colorIndex);
 
 /**
- * Draws a half-transparent rectangle by blacking out odd pixels on odd lines,
- * even pixels on even lines.
+ * Draws a half-transparent rectangle by palette blending with black.
  *
  * @brief Render a transparent black rectangle
  * @param out Target buffer
@@ -91,6 +92,16 @@ void UnsafeDrawVerticalLine(const Surface &out, Point from, int height, std::uin
  * @param height Rectangle height
  */
 void DrawHalfTransparentRectTo(const Surface &out, int sx, int sy, int width, int height);
+
+/**
+ * Draws a half-transparent pixel
+ *
+ * @brief Render a transparent pixel
+ * @param out Target buffer
+ * @param position Screen coordinates
+ * @param col Pixel color
+ */
+void SetHalfTransparentPixel(const Surface &out, Point position, uint8_t color);
 
 /**
  * Draws a 2px inset border.

@@ -19,6 +19,7 @@
 #include <cstdint>
 
 #include "engine/render/blit_impl.hpp"
+#include "levels/dun_tile.hpp"
 #include "lighting.h"
 #include "options.h"
 #include "utils/attributes.h"
@@ -34,19 +35,19 @@ namespace devilution {
 namespace {
 
 /** Width of a tile rendering primitive. */
-constexpr int_fast16_t Width = TILE_WIDTH / 2;
+constexpr int_fast16_t Width = DunFrameWidth;
 
 /** Height of a tile rendering primitive (except triangles). */
-constexpr int_fast16_t Height = TILE_HEIGHT;
+constexpr int_fast16_t Height = DunFrameHeight;
 
 /** Height of the lower triangle of a triangular or a trapezoid tile. */
-constexpr int_fast16_t LowerHeight = TILE_HEIGHT / 2;
+constexpr int_fast16_t LowerHeight = DunFrameHeight / 2;
 
 /** Height of the upper triangle of a triangular tile. */
-constexpr int_fast16_t TriangleUpperHeight = TILE_HEIGHT / 2 - 1;
+constexpr int_fast16_t TriangleUpperHeight = DunFrameHeight / 2 - 1;
 
 /** Height of the upper rectangle of a trapezoid tile. */
-constexpr int_fast16_t TrapezoidUpperHeight = TILE_HEIGHT / 2;
+constexpr int_fast16_t TrapezoidUpperHeight = DunFrameHeight / 2;
 
 constexpr int_fast16_t TriangleHeight = LowerHeight + TriangleUpperHeight;
 
@@ -1174,7 +1175,7 @@ void RenderTile(const Surface &out, Point position,
 
 #ifdef DEBUG_STR
 	const auto [debugStr, flags] = GetTileDebugStr(tile);
-	DrawString(out, debugStr, Rectangle { Point { position.x + 2, position.y - 29 }, Size { 28, 28 } }, flags);
+	DrawString(out, debugStr, Rectangle { Point { position.x + 2, position.y - 29 }, Size { 28, 28 } }, { .flags = flags });
 #endif
 }
 

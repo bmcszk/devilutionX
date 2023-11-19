@@ -1,6 +1,6 @@
 #include "./console.h"
 
-#if (defined(_WIN64) || defined(_WIN32)) && !defined(NXDK)
+#if defined(_WIN32) && !defined(DEVILUTIONX_WINDOWS_NO_WCHAR)
 #include <cstddef>
 #include <cstdio>
 #include <string>
@@ -30,7 +30,7 @@ void WriteToStderr(std::string_view str)
 	HANDLE handle = GetStderrHandle();
 	if (handle == NULL)
 		return;
-	WriteConsole(handle, str.data(), str.size(), NULL, NULL);
+	WriteConsole(handle, str.data(), static_cast<DWORD>(str.size()), NULL, NULL);
 }
 
 } // namespace

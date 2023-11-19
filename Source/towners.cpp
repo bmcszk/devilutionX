@@ -21,7 +21,7 @@ int CowMsg;
 int CowClicks;
 
 /** Specifies the active sound effect ID for interacting with cows. */
-_sfx_id CowPlaying = SFX_NONE;
+SfxID CowPlaying = SfxID::None;
 
 struct TownerData {
 	_talker_id type;
@@ -564,17 +564,17 @@ void TalkToStoryteller(Player &player, Towner & /*storyteller*/)
 
 void TalkToCow(Player &player, Towner &cow)
 {
-	if (CowPlaying != SFX_NONE && effect_is_playing(CowPlaying))
+	if (CowPlaying != SfxID::None && effect_is_playing(CowPlaying))
 		return;
 
 	CowClicks++;
 
-	CowPlaying = TSFX_COW1;
+	CowPlaying = SfxID::Cow1;
 	if (CowClicks == 4) {
 		if (gbIsSpawn)
 			CowClicks = 0;
 
-		CowPlaying = TSFX_COW2;
+		CowPlaying = SfxID::Cow2;
 	} else if (CowClicks >= 8 && !gbIsSpawn) {
 		CowClicks = 4;
 
@@ -701,19 +701,7 @@ void TalkToCowFarmer(Player &player, Towner &cowFarmer)
 		break;
 	case QUEST_HIVE_ACTIVE:
 		if (!player._pLvlVisited[9] && player.getCharacterLevel() < 15) {
-			_speech_id qt = TEXT_JERSEY12;
-			switch (GenerateRnd(4)) {
-			case 0:
-				qt = TEXT_JERSEY9;
-				break;
-			case 1:
-				qt = TEXT_JERSEY10;
-				break;
-			case 2:
-				qt = TEXT_JERSEY11;
-				break;
-			}
-			InitQTextMsg(qt);
+			InitQTextMsg(PickRandomlyAmong({ TEXT_JERSEY9, TEXT_JERSEY10, TEXT_JERSEY11, TEXT_JERSEY12 }));
 			break;
 		}
 
@@ -922,12 +910,12 @@ void UpdateCowFarmerAnimAfterQuestComplete()
 }
 
 #ifdef _DEBUG
-bool DebugTalkToTowner(std::string targetName)
+bool DebugTalkToTowner(std::string_view targetName)
 {
 	SetupTownStores();
-	AsciiStrToLower(targetName);
+	const std::string lowercaseName = AsciiStrToLower(targetName);
 	Player &myPlayer = *MyPlayer;
-	for (auto &townerData : TownersData) {
+	for (const TownerData &townerData : TownersData) {
 		if (!IsTownerPresent(townerData.type))
 			continue;
 		// cows have an init function that differs from the rest and isn't compatible with this code, skip them :(
@@ -937,7 +925,7 @@ bool DebugTalkToTowner(std::string targetName)
 		townerData.init(fakeTowner, townerData);
 		fakeTowner.position = myPlayer.position.tile;
 		const std::string npcName = AsciiStrToLower(fakeTowner.name);
-		if (npcName.find(targetName) != std::string::npos) {
+		if (npcName.find(lowercaseName) != std::string::npos) {
 			townerData.talk(myPlayer, fakeTowner);
 			return true;
 		}

@@ -19,6 +19,7 @@
 #include <asio/ts/internet.hpp>
 #include <asio/ts/io_context.hpp>
 #include <asio/ts/net.hpp>
+#include <asio_handle_exception.hpp>
 
 #include "dvlnet/abstract_net.h"
 #include "dvlnet/frame_queue.h"
@@ -27,19 +28,17 @@
 
 namespace devilution::net {
 
-class server_exception : public dvlnet_exception {
-public:
-	const char *what() const throw() override
-	{
-		return "Invalid player ID";
-	}
-};
+inline PacketError ServerError()
+{
+	return PacketError("Invalid player ID");
+}
 
 class tcp_server {
 public:
 	tcp_server(asio::io_context &ioc, const std::string &bindaddr,
 	    unsigned short port, packet_factory &pktfty);
 	std::string LocalhostSelf();
+	tl::expected<void, PacketError> CheckIoHandlerError();
 	void Close();
 	virtual ~tcp_server();
 
@@ -69,6 +68,8 @@ private:
 	std::array<scc, MAX_PLRS> connections;
 	buffer_t game_init_info;
 
+	std::optional<PacketError> ioHandlerResult;
+
 	scc MakeConnection();
 	plr_t NextFree();
 	bool Empty();
@@ -77,13 +78,14 @@ private:
 	void StartReceive(const scc &con);
 	void HandleReceive(const scc &con, const asio::error_code &ec, size_t bytesRead);
 	tl::expected<void, PacketError> HandleReceiveNewPlayer(const scc &con, packet &pkt);
-	void HandleReceivePacket(packet &pkt);
-	void SendPacket(packet &pkt);
-	void StartSend(const scc &con, packet &pkt);
+	tl::expected<void, PacketError> HandleReceivePacket(packet &pkt);
+	tl::expected<void, PacketError> SendPacket(packet &pkt);
+	tl::expected<void, PacketError> StartSend(const scc &con, packet &pkt);
 	void HandleSend(const scc &con, const asio::error_code &ec, size_t bytesSent);
 	void StartTimeout(const scc &con);
 	void HandleTimeout(const scc &con, const asio::error_code &ec);
 	void DropConnection(const scc &con);
+	void RaiseIoHandlerError(const PacketError &error);
 };
 
 } // namespace devilution::net

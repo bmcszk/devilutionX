@@ -12,7 +12,7 @@
 #include <SDL.h>
 #include <config.h>
 
-#if (defined(_WIN64) || defined(_WIN32)) && !defined(__UWP__) && !defined(NXDK)
+#if defined(_WIN32) && !defined(__UWP__) && !defined(DEVILUTIONX_WINDOWS_NO_WCHAR)
 #include <find_steam_game.h>
 #endif
 
@@ -147,7 +147,7 @@ std::vector<std::string> GetMPQSearchPaths()
 	}
 #elif defined(NXDK)
 	paths.emplace_back("D:\\");
-#elif (defined(_WIN64) || defined(_WIN32)) && !defined(__UWP__) && !defined(NXDK)
+#elif defined(_WIN32) && !defined(__UWP__) && !defined(DEVILUTIONX_WINDOWS_NO_WCHAR)
 	char gogpath[_FSG_PATH_MAX];
 	fsg_get_gog_game_path(gogpath, "1412601690");
 	if (strlen(gogpath) > 0) {
@@ -156,7 +156,9 @@ std::vector<std::string> GetMPQSearchPaths()
 	}
 #endif
 
-	paths.emplace_back(""); // PWD
+	if (paths.empty() || !paths.back().empty()) {
+		paths.emplace_back(); // PWD
+	}
 
 	if (SDL_LOG_PRIORITY_VERBOSE >= SDL_LogGetPriority(SDL_LOG_CATEGORY_APPLICATION)) {
 		LogVerbose("Paths:\n    base: {}\n    pref: {}\n  config: {}\n  assets: {}",
@@ -403,6 +405,12 @@ void MainWndProc(const SDL_Event &event)
 		break;
 	case SDL_WINDOWEVENT_FOCUS_GAINED:
 		diablo_focus_unpause();
+		break;
+	case SDL_WINDOWEVENT_MOVED:
+	case SDL_WINDOWEVENT_RESIZED:
+	case SDL_WINDOWEVENT_MAXIMIZED:
+	case SDL_WINDOWEVENT_ENTER:
+	case SDL_WINDOWEVENT_TAKE_FOCUS:
 		break;
 	default:
 		LogVerbose("Unhandled SDL_WINDOWEVENT event: {:d}", event.window.event);

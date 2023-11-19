@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "engine/palette.h"
 #include "lighting.h"
 #include "movie.h"
 #include "options.h"
@@ -93,6 +94,13 @@ void DrawHalfTransparentBlendedRectTo(const Surface &out, unsigned sx, unsigned 
 
 } // namespace
 
+void FillRect(const Surface &out, int x, int y, int width, int height, uint8_t colorIndex)
+{
+	for (int j = 0; j < height; j++) {
+		DrawHorizontalLine(out, { x, y + j }, width, colorIndex);
+	}
+}
+
 void DrawHorizontalLine(const Surface &out, Point from, int width, std::uint8_t colorIndex)
 {
 	if (from.y < 0 || from.y >= out.h() || from.x >= out.w() || width <= 0 || from.x + width <= 0)
@@ -160,6 +168,15 @@ void DrawHalfTransparentRectTo(const Surface &out, int sx, int sy, int width, in
 	}
 
 	DrawHalfTransparentBlendedRectTo(out, sx, sy, width, height);
+}
+
+void SetHalfTransparentPixel(const Surface &out, Point position, uint8_t color)
+{
+	if (out.InBounds(position)) {
+		uint8_t *pix = out.at(position.x, position.y);
+		const auto &lookupTable = paletteTransparencyLookup[color];
+		*pix = lookupTable[*pix];
+	}
 }
 
 void UnsafeDrawBorder2px(const Surface &out, Rectangle rect, uint8_t color)

@@ -121,7 +121,7 @@ std::byte *CopyBufferedPackets(std::byte *destination, TBuffer *source, size_t *
 			srcPtr += chunkSize;
 			*size -= chunkSize;
 		}
-		memcpy(source->bData, srcPtr, (source->bData - srcPtr) + source->dwNextWriteOffset + 1);
+		memmove(source->bData, srcPtr, (source->bData - srcPtr) + source->dwNextWriteOffset + 1);
 		source->dwNextWriteOffset += static_cast<uint32_t>(source->bData - srcPtr);
 		return destination;
 	}
@@ -192,7 +192,7 @@ void CheckPlayerInfoTimeouts()
 	}
 }
 
-void SendPacket(int playerId, const std::byte *packet, size_t size)
+void SendPacket(size_t playerId, const std::byte *packet, size_t size)
 {
 	TPkt pkt;
 
@@ -200,7 +200,7 @@ void SendPacket(int playerId, const std::byte *packet, size_t size)
 	const size_t sizeWithheader = size + sizeof(pkt.hdr);
 	pkt.hdr.wLen = SDL_SwapLE16(static_cast<uint16_t>(sizeWithheader));
 	memcpy(pkt.body, packet, size);
-	if (!SNetSendMessage(playerId, &pkt.hdr, sizeWithheader))
+	if (!SNetSendMessage(static_cast<int>(playerId), &pkt.hdr, sizeWithheader))
 		nthread_terminate_game("SNetSendMessage0");
 }
 
@@ -241,10 +241,8 @@ void ParseTurn(size_t pnum, uint32_t turn)
 	}
 }
 
-void PlayerLeftMsg(int pnum, bool left)
+void PlayerLeftMsg(Player &player, bool left)
 {
-	Player &player = Players[pnum];
-
 	if (&player == InspectPlayer)
 		InspectPlayer = MyPlayer;
 
@@ -254,13 +252,13 @@ void PlayerLeftMsg(int pnum, bool left)
 		return;
 
 	FixPlrWalkTags(player);
-	RemovePortalMissile(pnum);
-	DeactivatePortal(pnum);
-	delta_close_portal(pnum);
+	RemovePortalMissile(player);
+	DeactivatePortal(player);
+	delta_close_portal(player);
 	RemovePlrMissiles(player);
 	if (left) {
 		std::string_view pszFmt = _("Player '{:s}' just left the game");
-		switch (sgdwPlayerLeftReasonTbl[pnum]) {
+		switch (sgdwPlayerLeftReasonTbl[player.getId()]) {
 		case LEAVE_ENDING:
 			pszFmt = _("Player '{:s}' killed Diablo and left the game!");
 			gbSomebodyWonGameKludge = true;
@@ -284,7 +282,7 @@ void ClearPlayerLeftState()
 			if (gbBufferMsgs == 1)
 				msg_send_drop_pkt(i, sgdwPlayerLeftReasonTbl[i]);
 			else
-				PlayerLeftMsg(i, true);
+				PlayerLeftMsg(Players[i], true);
 
 			sgbPlayerLeftGameTbl[i] = false;
 			sgdwPlayerLeftReasonTbl[i] = 0;
@@ -347,7 +345,7 @@ void ProcessTmsgs()
 	}
 }
 
-void SendPlayerInfo(int pnum, _cmd_id cmd)
+void SendPlayerInfo(size_t pnum, _cmd_id cmd)
 {
 	PlayerNetPack packed;
 	Player &myPlayer = *MyPlayer;
@@ -495,7 +493,7 @@ void InitGameInfo()
 	sgGameInitInfo.fullQuests = (!gbIsMultiplayer || *sgOptions.Gameplay.multiplayerFullQuests) ? 1 : 0;
 }
 
-void NetSendLoPri(int playerId, const std::byte *data, size_t size)
+void NetSendLoPri(size_t playerId, const std::byte *data, size_t size)
 {
 	if (data != nullptr && size != 0) {
 		CopyPacket(&lowPriorityBuffer, data, size);
@@ -503,7 +501,7 @@ void NetSendLoPri(int playerId, const std::byte *data, size_t size)
 	}
 }
 
-void NetSendHiPri(int playerId, const std::byte *data, size_t size)
+void NetSendHiPri(size_t playerId, const std::byte *data, size_t size)
 {
 	if (data != nullptr && size != 0) {
 		CopyPacket(&highPriorityBuffer, data, size);
@@ -535,7 +533,7 @@ void multi_send_msg_packet(uint32_t pmask, const std::byte *data, size_t size)
 	size_t playerID = 0;
 	for (size_t v = 1; playerID < Players.size(); playerID++, v <<= 1) {
 		if ((v & pmask) != 0) {
-			if (!SNetSendMessage(playerID, &pkt.hdr, len) && SErrGetLastError() != STORM_ERROR_INVALID_PLAYER) {
+			if (!SNetSendMessage(playerID, &pkt.hdr, len)) {
 				nthread_terminate_game("SNetSendMessage");
 				return;
 			}
@@ -678,8 +676,6 @@ void multi_process_network_packets()
 		}
 		HandleAllPackets(playerId, (const std::byte *)(pkt + 1), dwMsgSize - sizeof(TPktHdr));
 	}
-	if (SErrGetLastError() != STORM_ERROR_NO_MESSAGES_WAITING)
-		nthread_terminate_game("SNetReceiveMsg");
 	CheckPlayerInfoTimeouts();
 }
 
@@ -799,15 +795,14 @@ bool NetInit(bool bSinglePlayer)
 	return true;
 }
 
-void recv_plrinfo(int pnum, const TCmdPlrInfoHdr &header, bool recv)
+void recv_plrinfo(Player &player, const TCmdPlrInfoHdr &header, bool recv)
 {
 	static PlayerNetPack PackedPlayerBuffer[MAX_PLRS];
 
-	assert(pnum >= 0 && pnum < MAX_PLRS);
-	Player &player = Players[pnum];
 	if (&player == MyPlayer) {
 		return;
 	}
+	size_t pnum = player.getId();
 	auto &packedPlayer = PackedPlayerBuffer[pnum];
 
 	if (sgwPackPlrOffsetTbl[pnum] != SDL_SwapLE16(header.wOffset)) {
@@ -828,7 +823,7 @@ void recv_plrinfo(int pnum, const TCmdPlrInfoHdr &header, bool recv)
 	}
 	sgwPackPlrOffsetTbl[pnum] = 0;
 
-	PlayerLeftMsg(pnum, false);
+	PlayerLeftMsg(player, false);
 	if (!UnPackNetPlayer(packedPlayer, player)) {
 		player = {};
 		SNetDropPlayer(pnum, LEAVE_DROP);

@@ -27,7 +27,7 @@ std::unique_ptr<uint16_t[]> pSetPiece;
 OptionalOwnedClxSpriteList pSpecialCels;
 std::unique_ptr<MegaTile[]> pMegaTiles;
 std::unique_ptr<std::byte[]> pDungeonCels;
-std::array<TileProperties, MAXTILES> SOLData;
+TileProperties SOLData[MAXTILES];
 WorldTilePosition dminPosition;
 WorldTilePosition dmaxPosition;
 dungeon_type leveltype;
@@ -417,11 +417,6 @@ void CreateDungeon(uint32_t rseed, lvl_entry entry)
 	Make_SetPC(SetPiece);
 }
 
-bool TileHasAny(int tileId, TileProperties property)
-{
-	return HasAnyOf(SOLData[tileId], property);
-}
-
 void LoadLevelSOLData()
 {
 	switch (leveltype) {
@@ -499,7 +494,7 @@ void SetDungeonMicros()
 	for (size_t i = 0; i < tileCount / blocks; i++) {
 		uint16_t *pieces = &levelPieces[blocks * i];
 		for (size_t block = 0; block < blocks; block++) {
-			DPieceMicros[i].mt[block] = SDL_SwapLE16(pieces[blocks - 2 + (block & 1) - (block & 0xE)]);
+			DPieceMicros[i].mt[block] = LevelCelBlock { SDL_SwapLE16(pieces[blocks - 2 + (block & 1) - (block & 0xE)]) };
 		}
 	}
 }
@@ -574,6 +569,7 @@ void LoadDungeonBase(const char *path, Point spawn, int floorId, int dirtId)
 	LoadTransparency(dunData.get());
 
 	SetMapMonsters(dunData.get(), Point(0, 0).megaToWorld());
+	InitAllMonsterGFX();
 	SetMapObjects(dunData.get(), 0, 0);
 }
 

@@ -306,8 +306,7 @@ void CheckPlayerNearby()
 	if (myPlayer.friendlyMode && spl != SpellID::Resurrect && spl != SpellID::HealOther)
 		return;
 
-	for (size_t i = 0; i < Players.size(); i++) {
-		const Player &player = Players[i];
+	for (const Player &player : Players) {
 		if (&player == MyPlayer)
 			continue;
 		const int mx = player.position.future.x;
@@ -325,19 +324,19 @@ void CheckPlayerNearby()
 				continue;
 		}
 
-		if (pcursplr != -1 && distance < newDdistance)
+		if (PlayerUnderCursor != nullptr && distance < newDdistance)
 			continue;
 		const int newRotations = GetRotaryDistance(player.position.future);
 		if (newRotations > 1) {
 			// do not target an enemy the player is not facing
 			continue;
 		}
-		if (pcursplr != -1 && distance == newDdistance && rotations < newRotations)
+		if (PlayerUnderCursor != nullptr && distance == newDdistance && rotations < newRotations)
 			continue;
 
 		distance = newDdistance;
 		rotations = newRotations;
-		pcursplr = i;
+		PlayerUnderCursor = &player;
 	}
 }
 
@@ -403,7 +402,7 @@ void FindTrigger()
 		}
 	}
 
-	if (pcursmonst != -1 || pcursplr != -1 || cursPosition.x == -1 || cursPosition.y == -1)
+	if (pcursmonst != -1 || PlayerUnderCursor != nullptr || cursPosition.x == -1 || cursPosition.y == -1)
 		return; // Prefer monster/player info text
 
 	CheckTrigForce();
@@ -463,19 +462,19 @@ void InteractMonster()
 void InteractPlayer()
 {
 	Player &myPlayer = *MyPlayer;
-	Point position = Players[pcursplr].position.future;
+	Point position = PlayerUnderCursor->position.future;
 	myPlayer._pdir = GetDirection(myPlayer.position.future, position);
 
 	// shoot
 	if (myPlayer.UsesRangedWeapon()) {
-		NetSendCmdParam1(true, CMD_RATTACKPID, pcursplr);
+		NetSendCmdParam1(true, CMD_RATTACKPID, PlayerUnderCursor->getId());
 		LastMouseButtonAction = MouseActionType::AttackPlayerTarget;
 		return;
 	}
 
 	// attack
 	if (GetMinDistance(position) < 2) {
-		NetSendCmdParam1(true, CMD_ATTACKPID, pcursplr);
+		NetSendCmdParam1(true, CMD_ATTACKPID, PlayerUnderCursor->getId());
 		LastMouseButtonAction = MouseActionType::AttackPlayerTarget;
 		return;
 	}
@@ -498,7 +497,7 @@ void Interact()
 	}
 
 	Player &myPlayer = *MyPlayer;
-	if (leveltype != DTYPE_TOWN && pcursplr != -1 && !myPlayer.friendlyMode) {
+	if (leveltype != DTYPE_TOWN && PlayerUnderCursor != nullptr && !myPlayer.friendlyMode) {
 		InteractPlayer();
 		return;
 	}
@@ -1137,7 +1136,7 @@ void StashMove(AxisDirection dir)
 	} else if (dir.y == AxisDirectionY_DOWN) {
 		if (ActiveStashSlot.y < 10 - itemSize.height) {
 			ActiveStashSlot.y++;
-		} else if ((holdItem.isEmpty() || CanBePlacedOnBelt(holdItem)) && ActiveStashSlot.x > 1) {
+		} else if ((holdItem.isEmpty() || CanBePlacedOnBelt(*MyPlayer, holdItem)) && ActiveStashSlot.x > 1) {
 			int beltSlot = ActiveStashSlot.x - 2;
 			Slot = SLOTXY_BELT_FIRST + beltSlot;
 			ActiveStashSlot = InvalidStashPoint;
@@ -1726,14 +1725,14 @@ void plrctrls_after_check_curs_move()
 	if (ControllerActionHeld != GameActionType_NONE && IsNoneOf(LastMouseButtonAction, MouseActionType::None, MouseActionType::Attack, MouseActionType::Spell)) {
 		InvalidateTargets();
 
-		if (pcursmonst == -1 && ObjectUnderCursor == nullptr && pcursitem == -1 && pcursinvitem == -1 && pcursstashitem == StashStruct::EmptyCell && pcursplr == -1) {
+		if (pcursmonst == -1 && ObjectUnderCursor == nullptr && pcursitem == -1 && pcursinvitem == -1 && pcursstashitem == StashStruct::EmptyCell && PlayerUnderCursor == nullptr) {
 			FindTrigger();
 		}
 		return;
 	}
 
 	// Clear focuse set by cursor
-	pcursplr = -1;
+	PlayerUnderCursor = nullptr;
 	pcursmonst = -1;
 	pcursitem = -1;
 	ObjectUnderCursor = nullptr;
@@ -1898,7 +1897,7 @@ bool SpellHasActorTarget()
 		cursPosition = Monsters[pcursmonst].position.tile;
 	}
 
-	return pcursplr != -1 || pcursmonst != -1;
+	return PlayerUnderCursor != nullptr || pcursmonst != -1;
 }
 
 void UpdateSpellTarget(SpellID spell)
@@ -1906,7 +1905,7 @@ void UpdateSpellTarget(SpellID spell)
 	if (SpellHasActorTarget())
 		return;
 
-	pcursplr = -1;
+	PlayerUnderCursor = nullptr;
 	pcursmonst = -1;
 
 	Player &myPlayer = *MyPlayer;
@@ -1986,7 +1985,7 @@ void PerformSpellAction()
 
 	const Player &myPlayer = *MyPlayer;
 	SpellID spl = myPlayer._pRSpell;
-	if ((pcursplr == -1 && (spl == SpellID::Resurrect || spl == SpellID::HealOther))
+	if ((PlayerUnderCursor == nullptr && (spl == SpellID::Resurrect || spl == SpellID::HealOther))
 	    || (ObjectUnderCursor == nullptr && spl == SpellID::TrapDisarm)) {
 		myPlayer.Say(HeroSpeech::ICantCastThatHere);
 		return;
@@ -1994,7 +1993,7 @@ void PerformSpellAction()
 
 	UpdateSpellTarget(myPlayer._pRSpell);
 	CheckPlrSpell(false);
-	if (pcursplr != -1)
+	if (PlayerUnderCursor != nullptr)
 		LastMouseButtonAction = MouseActionType::SpellPlayerTarget;
 	else if (pcursmonst != -1)
 		LastMouseButtonAction = MouseActionType::SpellMonsterTarget;

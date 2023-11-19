@@ -123,7 +123,7 @@ PanelEntry panelEntries[] = {
 	{ "", { 9, 14 }, 150, 0,
 	    []() { return StyledText { UiFlags::ColorWhite, InspectPlayer->_pName }; } },
 	{ "", { 161, 14 }, 149, 0,
-	    []() { return StyledText { UiFlags::ColorWhite, std::string(_(PlayersData[static_cast<std::size_t>(InspectPlayer->_pClass)].className)) }; } },
+	    []() { return StyledText { UiFlags::ColorWhite, std::string(InspectPlayer->getClassName()) }; } },
 
 	{ N_("Level"), { 57, 52 }, 57, 45,
 	    []() { return StyledText { UiFlags::ColorWhite, StrCat(InspectPlayer->getCharacterLevel()) }; } },
@@ -240,13 +240,15 @@ void DrawShadowString(const Surface &out, const PanelEntry &entry)
 		labelPosition += Displacement { -entry.labelLength - (IsSmallFontTall() ? 2 : 3), 0 };
 	}
 
-	// If the text is less tall then the field, we center it vertically relative to the field.
+	// If the text is less tall than the field, we center it vertically relative to the field.
 	// Otherwise, we draw from the top of the field.
 	const int textHeight = (c_count(wrapped, '\n') + 1) * GetLineHeight(wrapped, GameFont12);
 	const int labelHeight = std::max(PanelFieldHeight, textHeight);
 
-	DrawString(out, text, { labelPosition + Displacement { -2, 2 }, { entry.labelLength, labelHeight } }, style | UiFlags::ColorBlack, Spacing);
-	DrawString(out, text, { labelPosition, { entry.labelLength, labelHeight } }, style | UiFlags::ColorWhite, Spacing);
+	DrawString(out, text, { labelPosition + Displacement { -2, 2 }, { entry.labelLength, labelHeight } },
+	    { .flags = style | UiFlags::ColorBlack, .spacing = Spacing });
+	DrawString(out, text, { labelPosition, { entry.labelLength, labelHeight } },
+	    { .flags = style | UiFlags::ColorWhite, .spacing = Spacing });
 }
 
 void DrawStatButtons(const Surface &out)
@@ -311,7 +313,7 @@ void DrawChr(const Surface &out)
 			    out,
 			    tmp.text,
 			    { entry.position + Displacement { pos.x, pos.y + PanelFieldPaddingTop }, { entry.length, PanelFieldInnerHeight } },
-			    UiFlags::AlignCenter | UiFlags::VerticalCenter | tmp.style, tmp.spacing);
+			    { .flags = UiFlags::AlignCenter | UiFlags::VerticalCenter | tmp.style, .spacing = tmp.spacing });
 		}
 	}
 	DrawStatButtons(out);

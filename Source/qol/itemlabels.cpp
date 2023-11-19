@@ -139,13 +139,6 @@ bool IsMouseOverGameArea()
 	return true;
 }
 
-void FillRect(const Surface &out, int x, int y, int width, int height, Uint8 col)
-{
-	for (int j = 0; j < height; j++) {
-		DrawHorizontalLine(out, { x, y + j }, width, col);
-	}
-}
-
 void DrawItemNameLabels(const Surface &out)
 {
 	const Surface clippedOut = out.subregionY(0, gnViewportHeight);
@@ -204,7 +197,8 @@ void DrawItemNameLabels(const Surface &out)
 			FillRect(clippedOut, label.pos.x, label.pos.y + MarginY, label.width, Height, PAL8_BLUE + 6);
 		else
 			DrawHalfTransparentRectTo(clippedOut, label.pos.x, label.pos.y + MarginY, label.width, Height);
-		DrawString(clippedOut, label.text, { { label.pos.x + MarginX, label.pos.y }, { label.width, Height } }, item.getTextColor());
+		DrawString(clippedOut, label.text, { { label.pos.x + MarginX, label.pos.y }, { label.width, Height } },
+		    { .flags = item.getTextColor() });
 	}
 	labelQueue.clear();
 }

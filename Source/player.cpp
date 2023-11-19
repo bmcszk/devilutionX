@@ -37,7 +37,6 @@
 #include "objects.h"
 #include "options.h"
 #include "player.h"
-#include "playerdat.hpp"
 #include "qol/autopickup.h"
 #include "qol/floatingnumbers.h"
 #include "qol/stash.h"
@@ -439,7 +438,7 @@ bool DoWalk(Player &player, int variant)
 	if (*sgOptions.Audio.walkingSound && (leveltype != DTYPE_TOWN || sgGameInitInfo.bRunInTown == 0)) {
 		if (player.AnimInfo.currentFrame == 0
 		    || player.AnimInfo.currentFrame == 4) {
-			PlaySfxLoc(PS_WALK1, player.position.tile);
+			PlaySfxLoc(SfxID::Walk, player.position.tile);
 		}
 	}
 
@@ -819,7 +818,7 @@ bool PlrHitObj(const Player &player, Object &targetObject)
 bool DoAttack(Player &player)
 {
 	if (player.AnimInfo.currentFrame == player._pAFNum - 2) {
-		PlaySfxLoc(PS_SWING, player.position.tile);
+		PlaySfxLoc(SfxID::Swing, player.position.tile);
 	}
 
 	bool didhit = false;
@@ -939,7 +938,7 @@ bool DoRangeAttack(Player &player)
 		    0);
 
 		if (arrow == 0 && mistype != MissileID::SpectralArrow) {
-			PlaySfxLoc(arrows != 1 ? IS_STING1 : PS_BFIRE, player.position.tile);
+			PlaySfxLoc(arrows != 1 ? SfxID::ShootBow2 : SfxID::ShootBow, player.position.tile);
 		}
 
 		if (DamageWeapon(player, 40)) {
@@ -1703,16 +1702,16 @@ int Player::GetCurrentAttributeValue(CharacterAttribute attribute) const
 
 int Player::GetMaximumAttributeValue(CharacterAttribute attribute) const
 {
-	PlayerData plrData = PlayersData[static_cast<std::size_t>(_pClass)];
+	const ClassAttributes &attr = getClassAttributes();
 	switch (attribute) {
 	case CharacterAttribute::Strength:
-		return plrData.maxStr;
+		return attr.maxStr;
 	case CharacterAttribute::Magic:
-		return plrData.maxMag;
+		return attr.maxMag;
 	case CharacterAttribute::Dexterity:
-		return plrData.maxDex;
+		return attr.maxDex;
 	case CharacterAttribute::Vitality:
-		return plrData.maxVit;
+		return attr.maxVit;
 	}
 	app_fatal("Unsupported attribute");
 }
@@ -1754,9 +1753,9 @@ bool Player::IsPositionInPath(Point pos)
 
 void Player::Say(HeroSpeech speechId) const
 {
-	_sfx_id soundEffect = herosounds[static_cast<size_t>(_pClass)][static_cast<size_t>(speechId)];
+	SfxID soundEffect = herosounds[static_cast<size_t>(_pClass)][static_cast<size_t>(speechId)];
 
-	if (soundEffect == SFX_NONE)
+	if (soundEffect == SfxID::None)
 		return;
 
 	PlaySfxLoc(soundEffect, position.tile);
@@ -1764,9 +1763,9 @@ void Player::Say(HeroSpeech speechId) const
 
 void Player::SaySpecific(HeroSpeech speechId) const
 {
-	_sfx_id soundEffect = herosounds[static_cast<size_t>(_pClass)][static_cast<size_t>(speechId)];
+	SfxID soundEffect = herosounds[static_cast<size_t>(_pClass)][static_cast<size_t>(speechId)];
 
-	if (soundEffect == SFX_NONE || effect_is_playing(soundEffect))
+	if (soundEffect == SfxID::None || effect_is_playing(soundEffect))
 		return;
 
 	PlaySfxLoc(soundEffect, position.tile, false);
@@ -1824,7 +1823,7 @@ void Player::RestorePartialMana()
 void Player::ReadySpellFromEquipment(inv_body_loc bodyLocation, bool forceSpell)
 {
 	auto &item = InvBody[bodyLocation];
-	if (item._itype == ItemType::Staff && IsValidSpell(item._iSpell) && item._iCharges > 0) {
+	if (item._itype == ItemType::Staff && IsValidSpell(item._iSpell) && item._iCharges > 0 && item._iStatFlag) {
 		if (forceSpell || _pRSpell == SpellID::Invalid || _pRSplType == SpellType::Invalid) {
 			_pRSpell = item._iSpell;
 			_pRSplType = SpellType::Charges;
@@ -2062,14 +2061,14 @@ uint32_t Player::getNextExperienceThreshold() const
 
 int32_t Player::calculateBaseLife() const
 {
-	const PlayerData &playerData = PlayersData[static_cast<size_t>(_pClass)];
-	return playerData.adjLife + (playerData.lvlLife * getCharacterLevel()) + (playerData.chrLife * _pBaseVit);
+	const ClassAttributes &attr = getClassAttributes();
+	return attr.adjLife + (attr.lvlLife * getCharacterLevel()) + (attr.chrLife * _pBaseVit);
 }
 
 int32_t Player::calculateBaseMana() const
 {
-	const PlayerData &playerData = PlayersData[static_cast<size_t>(_pClass)];
-	return playerData.adjMana + (playerData.lvlMana * getCharacterLevel()) + (playerData.chrMana * _pBaseMag);
+	const ClassAttributes &attr = getClassAttributes();
+	return attr.adjMana + (attr.lvlMana * getCharacterLevel()) + (attr.chrMana * _pBaseMag);
 }
 
 Player *PlayerAtPosition(Point position)
@@ -2096,7 +2095,7 @@ void LoadPlrGFX(Player &player, player_graphic graphic)
 	const HeroClass cls = GetPlayerSpriteClass(player._pClass);
 	const PlayerWeaponGraphic animWeaponId = GetPlayerWeaponGraphic(graphic, static_cast<PlayerWeaponGraphic>(player._pgfxnum & 0xF));
 
-	const char *path = PlayersData[static_cast<std::size_t>(cls)].classPath;
+	const char *path = PlayersSpriteData[static_cast<std::size_t>(cls)].classPath;
 
 	const char *szCel;
 	switch (graphic) {
@@ -2279,24 +2278,22 @@ void CreatePlayer(Player &player, HeroClass c)
 	player = {};
 	SetRndSeed(SDL_GetTicks());
 
-	const PlayerData &playerData = PlayersData[static_cast<size_t>(c)];
-
 	player.setCharacterLevel(1);
 	player._pClass = c;
 
-	player._pBaseStr = playerData.baseStr;
+	const ClassAttributes &attr = player.getClassAttributes();
+
+	player._pBaseStr = attr.baseStr;
 	player._pStrength = player._pBaseStr;
 
-	player._pBaseMag = playerData.baseMag;
+	player._pBaseMag = attr.baseMag;
 	player._pMagic = player._pBaseMag;
 
-	player._pBaseDex = playerData.baseDex;
+	player._pBaseDex = attr.baseDex;
 	player._pDexterity = player._pBaseDex;
 
-	player._pBaseVit = playerData.baseVit;
+	player._pBaseVit = attr.baseVit;
 	player._pVitality = player._pBaseVit;
-
-	player._pBaseToBlk = playerData.blockBonus;
 
 	player._pHitPoints = player.calculateBaseLife();
 	player._pMaxHP = player._pHitPoints;
@@ -2313,48 +2310,18 @@ void CreatePlayer(Player &player, HeroClass c)
 	player._pLightRad = 10;
 	player._pInfraFlag = false;
 
-	player._pRSplType = SpellType::Skill;
-	SpellID s = playerData.skill;
-	player._pAblSpells = GetSpellBitmask(s);
-	player._pRSpell = s;
-
-	if (c == HeroClass::Sorcerer) {
-		player._pMemSpells = GetSpellBitmask(SpellID::Firebolt);
-		player._pRSplType = SpellType::Spell;
-		player._pRSpell = SpellID::Firebolt;
-	} else {
-		player._pMemSpells = 0;
-	}
-
 	for (uint8_t &spellLevel : player._pSplLvl) {
 		spellLevel = 0;
 	}
 
 	player._pSpellFlags = SpellFlag::None;
-
-	if (player._pClass == HeroClass::Sorcerer) {
-		player._pSplLvl[static_cast<int8_t>(SpellID::Firebolt)] = 2;
-	}
+	player._pRSplType = SpellType::Invalid;
 
 	// Initializing the hotkey bindings to no selection
 	std::fill(player._pSplHotKey, player._pSplHotKey + NumHotkeys, SpellID::Invalid);
 
-	PlayerWeaponGraphic animWeaponId = PlayerWeaponGraphic::Unarmed;
-	switch (c) {
-	case HeroClass::Warrior:
-	case HeroClass::Bard:
-	case HeroClass::Barbarian:
-		animWeaponId = PlayerWeaponGraphic::SwordShield;
-		break;
-	case HeroClass::Rogue:
-		animWeaponId = PlayerWeaponGraphic::Bow;
-		break;
-	case HeroClass::Sorcerer:
-	case HeroClass::Monk:
-		animWeaponId = PlayerWeaponGraphic::Staff;
-		break;
-	}
-	player._pgfxnum = static_cast<uint8_t>(animWeaponId);
+	// CreatePlrItems calls AutoEquip which will overwrite the player graphic if required
+	player._pgfxnum = static_cast<uint8_t>(PlayerWeaponGraphic::Unarmed);
 
 	for (bool &levelVisited : player._pLvlVisited) {
 		levelVisited = false;
@@ -2397,7 +2364,7 @@ void NextPlrLevel(Player &player)
 	} else {
 		player._pStatPts += 5;
 	}
-	int hp = PlayersData[static_cast<size_t>(player._pClass)].lvlLife;
+	int hp = player.getClassAttributes().lvlLife;
 
 	player._pMaxHP += hp;
 	player._pHitPoints = player._pMaxHP;
@@ -2408,7 +2375,7 @@ void NextPlrLevel(Player &player)
 		RedrawComponent(PanelDrawComponent::Health);
 	}
 
-	int mana = PlayersData[static_cast<size_t>(player._pClass)].lvlMana;
+	int mana = player.getClassAttributes().lvlMana;
 
 	player._pMaxMana += mana;
 	player._pMaxManaBase += mana;
@@ -2426,8 +2393,8 @@ void NextPlrLevel(Player &player)
 		FocusOnCharInfo();
 
 	CalcPlrInv(player, true);
-	PlaySFX(IS_IHARM);
-	PlaySFX(IS_ISIGN);
+	PlaySFX(SfxID::ItemArmor);
+	PlaySFX(SfxID::ItemSign);
 }
 
 void Player::_addExperience(uint32_t experience, int levelDelta)
@@ -2534,8 +2501,7 @@ void InitPlayer(Player &player, bool firstTime)
 		ActivateVision(player.position.tile, player._pLightRad, player.getId());
 	}
 
-	SpellID s = PlayersData[static_cast<size_t>(player._pClass)].skill;
-	player._pAblSpells = GetSpellBitmask(s);
+	player._pAblSpells = GetSpellBitmask(GetPlayerStartingLoadoutForClass(player._pClass).skill);
 
 	player._pInvincible = false;
 
@@ -2613,7 +2579,7 @@ void StartPlrBlock(Player &player, Direction dir)
 		return;
 	}
 
-	PlaySfxLoc(IS_ISWORD, player.position.tile);
+	PlaySfxLoc(SfxID::ItemSword, player.position.tile);
 
 	int8_t skippedAnimationFrames = 0;
 	if (HasAnyOf(player._pIFlags, ItemSpecialEffect::FastBlock)) {
@@ -2792,19 +2758,35 @@ StartPlayerKill(Player &player, DeathReason deathReason)
 void StripTopGold(Player &player)
 {
 	for (Item &item : InventoryPlayerItemsRange { player }) {
-		if (item._itype == ItemType::Gold) {
-			if (item._ivalue > MaxGold) {
-				Item excessGold;
-				MakeGoldStack(excessGold, item._ivalue - MaxGold);
-				item._ivalue = MaxGold;
+		if (item._itype != ItemType::Gold)
+			continue;
+		if (item._ivalue <= MaxGold)
+			continue;
+		Item excessGold;
+		MakeGoldStack(excessGold, item._ivalue - MaxGold);
+		item._ivalue = MaxGold;
 
-				if (!GoldAutoPlace(player, excessGold)) {
-					DeadItem(player, std::move(excessGold), { 0, 0 });
-				}
-			}
-		}
+		if (GoldAutoPlace(player, excessGold))
+			continue;
+		if (!player.HoldItem.isEmpty() && ActiveItemCount + 1 >= MAXITEMS)
+			continue;
+		DeadItem(player, std::move(excessGold), { 0, 0 });
 	}
 	player._pGold = CalculateGold(player);
+
+	if (player.HoldItem.isEmpty())
+		return;
+	if (AutoEquip(player, player.HoldItem, false))
+		return;
+	if (AutoPlaceItemInInventory(player, player.HoldItem))
+		return;
+	if (AutoPlaceItemInBelt(player, player.HoldItem))
+		return;
+	std::optional<Point> itemTile = FindAdjacentPositionForItem(player.position.tile, player._pdir);
+	if (itemTile)
+		return;
+	DeadItem(player, std::move(player.HoldItem), { 0, 0 });
+	NewCursor(CURSOR_HAND);
 }
 
 void ApplyPlrDamage(DamageType damageType, Player &player, int dam, int minHP /*= 0*/, int frac /*= 0*/, DeathReason deathReason /*= DeathReason::MonsterOrTrap*/)
@@ -2991,16 +2973,16 @@ void ProcessPlayers()
 		sfxdelay--;
 		if (sfxdelay == 0) {
 			switch (sfxdnum) {
-			case USFX_DEFILER1:
+			case SfxID::Defiler1:
 				InitQTextMsg(TEXT_DEFILER1);
 				break;
-			case USFX_DEFILER2:
+			case SfxID::Defiler2:
 				InitQTextMsg(TEXT_DEFILER2);
 				break;
-			case USFX_DEFILER3:
+			case SfxID::Defiler3:
 				InitQTextMsg(TEXT_DEFILER3);
 				break;
-			case USFX_DEFILER4:
+			case SfxID::Defiler4:
 				InitQTextMsg(TEXT_DEFILER4);
 				break;
 			default:
@@ -3224,9 +3206,9 @@ void CheckPlrSpell(bool isShiftHeld, SpellID spellID, SpellType spellType)
 	} else if (pcursmonst != -1 && !isShiftHeld) {
 		LastMouseButtonAction = MouseActionType::SpellMonsterTarget;
 		NetSendCmdParam5(true, CMD_SPELLID, pcursmonst, static_cast<int8_t>(spellID), static_cast<uint8_t>(spellType), spellLevel, spellFrom);
-	} else if (pcursplr != -1 && !isShiftHeld && !myPlayer.friendlyMode) {
+	} else if (PlayerUnderCursor != nullptr && !isShiftHeld && !myPlayer.friendlyMode) {
 		LastMouseButtonAction = MouseActionType::SpellPlayerTarget;
-		NetSendCmdParam5(true, CMD_SPELLPID, pcursplr, static_cast<int8_t>(spellID), static_cast<uint8_t>(spellType), spellLevel, spellFrom);
+		NetSendCmdParam5(true, CMD_SPELLPID, PlayerUnderCursor->getId(), static_cast<int8_t>(spellID), static_cast<uint8_t>(spellType), spellLevel, spellFrom);
 	} else {
 		LastMouseButtonAction = MouseActionType::Spell;
 		NetSendCmdLocParam4(true, CMD_SPELLXY, cursPosition, static_cast<int8_t>(spellID), static_cast<uint8_t>(spellType), spellLevel, spellFrom);
@@ -3329,7 +3311,7 @@ void ModifyPlrMag(Player &player, int l)
 	player._pBaseMag += l;
 
 	int ms = l;
-	ms *= PlayersData[static_cast<size_t>(player._pClass)].chrMana;
+	ms *= player.getClassAttributes().chrMana;
 
 	player._pMaxManaBase += ms;
 	player._pMaxMana += ms;
@@ -3366,7 +3348,7 @@ void ModifyPlrVit(Player &player, int l)
 	player._pBaseVit += l;
 
 	int ms = l;
-	ms *= PlayersData[static_cast<size_t>(player._pClass)].chrLife;
+	ms *= player.getClassAttributes().chrLife;
 
 	player._pHPBase += ms;
 	player._pMaxHPBase += ms;
@@ -3401,7 +3383,7 @@ void SetPlrMag(Player &player, int v)
 	player._pBaseMag = v;
 
 	int m = v;
-	m *= PlayersData[static_cast<size_t>(player._pClass)].chrMana;
+	m *= player.getClassAttributes().chrMana;
 
 	player._pMaxManaBase = m;
 	player._pMaxMana = m;
@@ -3419,7 +3401,7 @@ void SetPlrVit(Player &player, int v)
 	player._pBaseVit = v;
 
 	int hp = v;
-	hp *= PlayersData[static_cast<size_t>(player._pClass)].chrLife;
+	hp *= player.getClassAttributes().chrLife;
 
 	player._pHPBase = hp;
 	player._pMaxHPBase = hp;
@@ -3461,11 +3443,11 @@ void PlayDungMsgs()
 		myPlayer.pDungMsgs |= DungMsgHell;
 	} else if (!setlevel && currlevel == 16 && !myPlayer._pLvlVisited[16] && (myPlayer.pDungMsgs & DungMsgDiablo) == 0) {
 		sfxdelay = 40;
-		sfxdnum = PS_DIABLVLINT;
+		sfxdnum = SfxID::DiabloGreeting;
 		myPlayer.pDungMsgs |= DungMsgDiablo;
 	} else if (!setlevel && currlevel == 17 && !myPlayer._pLvlVisited[17] && (myPlayer.pDungMsgs2 & 1) == 0) {
 		sfxdelay = 10;
-		sfxdnum = USFX_DEFILER1;
+		sfxdnum = SfxID::Defiler1;
 		Quests[Q_DEFILER]._qactive = QUEST_ACTIVE;
 		Quests[Q_DEFILER]._qlog = true;
 		Quests[Q_DEFILER]._qmsg = TEXT_DEFILER1;
@@ -3473,14 +3455,14 @@ void PlayDungMsgs()
 		myPlayer.pDungMsgs2 |= 1;
 	} else if (!setlevel && currlevel == 19 && !myPlayer._pLvlVisited[19] && (myPlayer.pDungMsgs2 & 4) == 0) {
 		sfxdelay = 10;
-		sfxdnum = USFX_DEFILER3;
+		sfxdnum = SfxID::Defiler3;
 		myPlayer.pDungMsgs2 |= 4;
 	} else if (!setlevel && currlevel == 21 && !myPlayer._pLvlVisited[21] && (myPlayer.pDungMsgs & 32) == 0) {
 		myPlayer.Say(HeroSpeech::ThisIsAPlaceOfGreatPower, 30);
 		myPlayer.pDungMsgs |= 32;
 	} else if (setlevel && setlvlnum == SL_SKELKING && !gbIsSpawn && !myPlayer._pSLvlVisited[SL_SKELKING] && Quests[Q_SKELKING]._qactive == QUEST_ACTIVE) {
 		sfxdelay = 10;
-		sfxdnum = USFX_SKING1;
+		sfxdnum = SfxID::LeoricGreeting;
 	} else {
 		sfxdelay = 0;
 	}

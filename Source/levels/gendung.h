@@ -9,12 +9,12 @@
 #include <memory>
 #include <optional>
 
-#include "engine.h"
 #include "engine/clx_sprite.hpp"
 #include "engine/point.hpp"
 #include "engine/rectangle.hpp"
 #include "engine/render/scrollrt.h"
 #include "engine/world_tile.hpp"
+#include "levels/dun_tile.hpp"
 #include "utils/attributes.h"
 #include "utils/bitset2d.hpp"
 #include "utils/enum_traits.h"
@@ -123,7 +123,7 @@ enum _difficulty : uint8_t {
 
 struct THEME_LOC {
 	RectangleOf<uint8_t> room;
-	int16_t ttval;
+	int8_t ttval;
 };
 
 struct MegaTile {
@@ -134,7 +134,7 @@ struct MegaTile {
 };
 
 struct MICROS {
-	uint16_t mt[16];
+	LevelCelBlock mt[16];
 };
 
 struct ShadowStruct {
@@ -167,7 +167,7 @@ extern std::unique_ptr<std::byte[]> pDungeonCels;
 /**
  * List tile properties
  */
-extern DVL_API_FOR_TEST std::array<TileProperties, MAXTILES> SOLData;
+extern DVL_API_FOR_TEST TileProperties SOLData[MAXTILES];
 /** Specifies the minimum X,Y-coordinates of the map. */
 extern WorldTilePosition dminPosition;
 /** Specifies the maximum X,Y-coordinates of the map. */
@@ -334,7 +334,11 @@ struct Miniset {
 	}
 };
 
-bool TileHasAny(int tileId, TileProperties property);
+[[nodiscard]] DVL_ALWAYS_INLINE bool TileHasAny(int tileId, TileProperties property)
+{
+	return HasAnyOf(SOLData[tileId], property);
+}
+
 void LoadLevelSOLData();
 void SetDungeonMicros();
 void DRLG_InitTrans();

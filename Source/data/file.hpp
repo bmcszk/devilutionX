@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <string_view>
 
@@ -74,8 +75,10 @@ public:
 	 */
 	static tl::expected<DataFile, Error> load(std::string_view path);
 
+	static DataFile loadOrDie(std::string_view path);
+
 	static void reportFatalError(Error code, std::string_view fileName);
-	static void reportFatalFieldError(std::errc code, std::string_view fileName, std::string_view fieldName, const DataFileField &field);
+	static void reportFatalFieldError(DataFileField::Error code, std::string_view fileName, std::string_view fieldName, const DataFileField &field, std::string_view details = {});
 
 	void resetHeader()
 	{
@@ -107,6 +110,10 @@ public:
 		return parseHeader(begin, end, [typedMapper](std::string_view label) { return typedMapper(label).transform([](T value) { return static_cast<uint8_t>(value); }); });
 	}
 
+	[[nodiscard]] tl::expected<void, DataFile::Error> skipHeader();
+
+	void skipHeaderOrDie(std::string_view path);
+
 	[[nodiscard]] RecordIterator begin() const
 	{
 		return { body_, data() + size(), body_ != data() };
@@ -116,6 +123,9 @@ public:
 	{
 		return {};
 	}
+
+	// Assumes a header
+	[[nodiscard]] size_t numRecords() const;
 
 	[[nodiscard]] const char *data() const
 	{

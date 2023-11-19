@@ -4,8 +4,11 @@
 #include <ostream>
 
 #include <expected.hpp>
+#include <function_ref.hpp>
 
 #include "parser.hpp"
+#include "utils/parse_int.hpp"
+#include "utils/str_split.hpp"
 
 namespace devilution {
 
@@ -16,6 +19,38 @@ class DataFileField {
 	unsigned column_;
 
 public:
+	enum class Error {
+		NotANumber,
+		OutOfRange,
+		InvalidValue
+	};
+
+	static tl::expected<void, Error> mapError(std::errc ec)
+	{
+		if (ec == std::errc())
+			return {};
+		switch (ec) {
+		case std::errc::result_out_of_range:
+			return tl::unexpected { Error::OutOfRange };
+		case std::errc::invalid_argument:
+			return tl::unexpected { Error::NotANumber };
+		default:
+			return tl::unexpected { Error::InvalidValue };
+		}
+	}
+
+	static tl::expected<void, Error> mapError(ParseIntError ec)
+	{
+		switch (ec) {
+		case ParseIntError::OutOfRange:
+			return tl::unexpected { Error::OutOfRange };
+		case ParseIntError::ParseError:
+			return tl::unexpected { Error::NotANumber };
+		default:
+			return tl::unexpected { Error::InvalidValue };
+		}
+	}
+
 	DataFileField(GetFieldResult *state, const char *end, unsigned row, unsigned column)
 	    : state_(state)
 	    , end_(end)
@@ -56,10 +91,10 @@ public:
 	 * use with operator* or repeated calls to parseInt (even with different types).
 	 * @tparam T an Integral type supported by std::from_chars
 	 * @param destination value to store the result of successful parsing
-	 * @return the error code from std::from_chars
+	 * @return an error code corresponding to the from_chars result if parsing failed
 	 */
 	template <typename T>
-	[[nodiscard]] std::errc parseInt(T &destination)
+	[[nodiscard]] tl::expected<void, Error> parseInt(T &destination)
 	{
 		std::from_chars_result result {};
 		if (state_->status == GetFieldResult::Status::ReadyToRead) {
@@ -74,18 +109,116 @@ public:
 		} else {
 			result = std::from_chars(state_->value.data(), end_, destination);
 		}
-		return result.ec;
+
+		return mapError(result.ec);
+	}
+
+	[[nodiscard]] tl::expected<void, Error> parseBool(bool &destination)
+	{
+		const std::string_view str = value();
+		if (str == "true") {
+			destination = true;
+			return {};
+		}
+		if (str == "false") {
+			destination = false;
+			return {};
+		}
+		return tl::make_unexpected(DataFileField::Error::InvalidValue);
 	}
 
 	template <typename T>
-	[[nodiscard]] tl::expected<T, std::errc> asInt()
+	[[nodiscard]] tl::expected<void, Error> parseIntArray(T *destination, size_t n)
+	{
+		size_t i = 0;
+		for (const std::string_view part : SplitByChar(value(), ',')) {
+			if (i == n)
+				return tl::make_unexpected(Error::InvalidValue);
+			const std::from_chars_result result
+			    = std::from_chars(part.data(), part.data() + part.size(), destination[i]);
+			if (result.ec != std::errc())
+				return mapError(result.ec);
+			++i;
+		}
+		if (i != n)
+			return tl::make_unexpected(Error::InvalidValue);
+		return {};
+	}
+
+	template <typename T, size_t N>
+	[[nodiscard]] tl::expected<void, Error> parseIntArray(T (&destination)[N])
+	{
+		return parseIntArray<T>(destination, N);
+	}
+
+	template <typename T, size_t N>
+	[[nodiscard]] tl::expected<void, Error> parseIntArray(std::array<T, N> &destination)
+	{
+		return parseIntArray<T>(destination.data(), N);
+	}
+
+	template <typename T, typename ParseFn>
+	[[nodiscard]] tl::expected<void, std::string> parseEnumList(T &destination, ParseFn &&parseFn)
+	{
+		destination = {};
+		const std::string_view str = value();
+		if (str.empty())
+			return {};
+		for (const std::string_view part : SplitByChar(str, ',')) {
+			auto result = parseFn(part);
+			if (!result.has_value())
+				return tl::make_unexpected(std::move(result).error());
+			destination |= result.value();
+		}
+		return {};
+	}
+
+	template <typename T>
+	[[nodiscard]] tl::expected<T, Error> asInt()
 	{
 		T value = 0;
-		auto parseIntResult = parseInt(value);
-		if (parseIntResult == std::errc()) {
-			return value;
+		return parseInt(value).map([value]() { return value; });
+	}
+
+	/**
+	 * @brief Attempts to parse the current field as a fixed point value with 6 bits for the fraction
+	 *
+	 * You can freely interleave this method with calls to operator*. If this is the first value
+	 * access since the last advance this will scan the current field and store it for later
+	 * use with operator* or repeated calls to parseInt/Fixed6 (even with different types).
+	 * @tparam T an Integral type supported by std::from_chars
+	 * @param destination value to store the result of successful parsing
+	 * @return an error code equivalent to what you'd get from from_chars if parsing failed
+	 */
+	template <typename T>
+	[[nodiscard]] tl::expected<void, Error> parseFixed6(T &destination)
+	{
+		ParseIntResult<T> parseResult;
+		if (state_->status == GetFieldResult::Status::ReadyToRead) {
+			const char *begin = state_->next;
+			// first read, consume digits
+			parseResult = ParseFixed6<T>({ begin, static_cast<size_t>(end_ - begin) }, &state_->next);
+			// then read the remainder of the field
+			*state_ = GetNextField(state_->next, end_);
+			// and prepend what was already parsed
+			state_->value = { begin, (state_->value.data() - begin) + state_->value.size() };
+		} else {
+			parseResult = ParseFixed6<T>(state_->value);
 		}
-		return tl::unexpected { parseIntResult };
+
+		if (parseResult.has_value()) {
+			destination = parseResult.value();
+			return {};
+		} else {
+			return mapError(parseResult.error());
+		}
+	}
+
+	template <typename T>
+	[[nodiscard]] tl::expected<T, Error> asFixed6()
+	{
+		T value = 0;
+		return parseFixed6(value).map([value]() { return value; });
 	}
 
 	/**

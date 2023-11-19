@@ -13,6 +13,13 @@ on:
       - '*.md'
       - 'docs/**'
 
+permissions:
+  contents: write
+
+env:
+  VCPKG_FEATURE_FLAGS: dependencygraph
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -33,9 +40,9 @@ jobs:
       uses: lukka/get-cmake@latest
 
     - name: Restore or setup vcpkg
-      uses: lukka/run-vcpkg@v11.1
+      uses: lukka/run-vcpkg@v11.3
       with:
-        vcpkgGitCommitId: '927bc12e31148b0d44ae9d174b96c20e3bcf08eb'
+        vcpkgGitCommitId: '486a4640db740f5994e492eb60748111dfc48de7'
 
     - name: Fetch test data
       run: |

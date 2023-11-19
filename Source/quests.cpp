@@ -225,7 +225,8 @@ void PrintQLString(const Surface &out, int x, int y, std::string_view str, bool 
 	if (marked) {
 		ClxDraw(out, GetPanelPosition(UiPanels::Quest, { x - 20, y + 13 }), (*pSPentSpn2Cels)[PentSpn2Spin()]);
 	}
-	DrawString(out, str, { GetPanelPosition(UiPanels::Quest, { x, y }), { 257, 0 } }, disabled ? UiFlags::ColorWhitegold : UiFlags::ColorWhite);
+	DrawString(out, str, { GetPanelPosition(UiPanels::Quest, { x, y }), { 257, 0 } },
+	    { .flags = disabled ? UiFlags::ColorWhitegold : UiFlags::ColorWhite });
 	if (marked) {
 		ClxDraw(out, GetPanelPosition(UiPanels::Quest, { x + width + 7, y + 13 }), (*pSPentSpn2Cels)[PentSpn2Spin()]);
 	}
@@ -233,7 +234,7 @@ void PrintQLString(const Surface &out, int x, int y, std::string_view str, bool 
 
 void StartPWaterPurify()
 {
-	PlaySfxLoc(IS_QUESTDN, MyPlayer->position.tile);
+	PlaySfxLoc(SfxID::QuestDone, MyPlayer->position.tile);
 	LoadPalette("levels\\l3data\\l3pwater.pal", false);
 	UpdatePWaterPalette();
 	WaterDone = 32;
@@ -886,7 +887,7 @@ void QuestlogUp()
 		if (SelectedQuest < 0) {
 			SelectedQuest = FirstFinishedQuest - 1;
 		}
-		PlaySFX(IS_TITLEMOV);
+		PlaySFX(SfxID::MenuMove);
 	}
 }
 
@@ -899,13 +900,13 @@ void QuestlogDown()
 		if (SelectedQuest == FirstFinishedQuest) {
 			SelectedQuest = 0;
 		}
-		PlaySFX(IS_TITLEMOV);
+		PlaySFX(SfxID::MenuMove);
 	}
 }
 
 void QuestlogEnter()
 {
-	PlaySFX(IS_TITLSLCT);
+	PlaySFX(SfxID::MenuSelect);
 	if (EncounteredQuestCount != 0 && SelectedQuest >= 0 && SelectedQuest < FirstFinishedQuest)
 		InitQTextMsg(Quests[EncounteredQuests[SelectedQuest]]._qmsg);
 	QuestLogIsOpen = false;

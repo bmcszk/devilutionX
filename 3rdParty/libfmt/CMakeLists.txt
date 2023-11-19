@@ -15,16 +15,12 @@ else()
   set(BUILD_SHARED_LIBS ON)
 endif()
 include(FetchContent)
-if(NXDK)
-  # branch: nxdk-v10.0.0
-  FetchContent_Declare(libfmt
-    URL https://github.com/diasurgical/fmt/archive/e421e854efcb21ee641349bab604d91b34af26b8.tar.gz
-    URL_HASH MD5=ebaac86fca56d4ef4a162ef125433f6f
-  )
-else()
-  FetchContent_Declare(libfmt
-    URL https://github.com/fmtlib/fmt/archive/refs/tags/10.1.1.tar.gz
-    URL_HASH MD5=0d41a16f1b3878d44e6fd7ff1f6cc45a
-  )
-endif()
+FetchContent_Declare(libfmt
+  URL https://github.com/fmtlib/fmt/archive/44f3d8a77cd7e05e9da92d68635abdb4da626e9e.tar.gz
+  URL_HASH MD5=b6eb4573962586cfbfb6e5e2986d292b
+)
 FetchContent_MakeAvailableExcludeFromAll(libfmt)
+
+if(DEVILUTIONX_WINDOWS_NO_WCHAR)
+  target_compile_definitions(fmt PUBLIC FMT_WINDOWS_NO_WCHAR)
+endif()

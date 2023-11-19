@@ -12,9 +12,9 @@ set(libdevilutionx_SRCS
   dead.cpp
   debug.cpp
   diablo.cpp
+  diablo_msg.cpp
   doom.cpp
   engine.cpp
-  error.cpp
   gamemenu.cpp
   gmenu.cpp
   help.cpp
@@ -70,6 +70,7 @@ set(libdevilutionx_SRCS
 
   data/file.cpp
   data/parser.cpp
+  data/record_reader.cpp
 
   DiabloUI/button.cpp
   DiabloUI/credits.cpp
@@ -88,6 +89,7 @@ set(libdevilutionx_SRCS
   DiabloUI/settingsmenu.cpp
   DiabloUI/support_lines.cpp
   DiabloUI/title.cpp
+  DiabloUI/text_input.cpp
 
   dvlnet/abstract_net.cpp
   dvlnet/base.cpp
@@ -131,7 +133,29 @@ set(libdevilutionx_SRCS
   levels/town.cpp
   levels/trigs.cpp
 
+  lua/autocomplete.cpp
+  lua/lua.cpp
+  lua/modules/audio.cpp
+  lua/modules/dev.cpp
+  lua/modules/dev/display.cpp
+  lua/modules/dev/items.cpp
+  lua/modules/dev/level.cpp
+  lua/modules/dev/level/map.cpp
+  lua/modules/dev/level/warp.cpp
+  lua/modules/dev/monsters.cpp
+  lua/modules/dev/player.cpp
+  lua/modules/dev/player/gold.cpp
+  lua/modules/dev/player/spells.cpp
+  lua/modules/dev/player/stats.cpp
+  lua/modules/dev/quests.cpp
+  lua/modules/dev/search.cpp
+  lua/modules/dev/towners.cpp
+  lua/modules/log.cpp
+  lua/modules/render.cpp
+  lua/repl.cpp
+
   panels/charpanel.cpp
+  panels/console.cpp
   panels/info_box.cpp
   panels/mainpanel.cpp
   panels/spell_book.cpp
@@ -160,6 +184,7 @@ set(libdevilutionx_SRCS
   utils/language.cpp
   utils/logged_fstream.cpp
   utils/paths.cpp
+  utils/parse_int.cpp
   utils/pcx_to_clx.cpp
   utils/sdl_bilinear_scale.cpp
   utils/sdl_thread.cpp
@@ -250,8 +275,18 @@ if(DISCORD_INTEGRATION)
   )
 endif()
 
+if(SCREEN_READER_INTEGRATION)
+  list(APPEND libdevilutionx_SRCS
+    utils/screen_reader.cpp
+  )
+endif()
+
 add_devilutionx_library(libdevilutionx OBJECT ${libdevilutionx_SRCS})
 target_include_directories(libdevilutionx PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+if(SCREEN_READER_INTEGRATION AND NOT WIN32)
+  target_include_directories(libdevilutionx PUBLIC ${Speechd_INCLUDE_DIRS})
+endif()
 
 # Use file GENERATE instead of configure_file because configure_file
 # does not support generator expressions.
@@ -276,6 +311,12 @@ if(DISCORD_INTEGRATION)
   target_link_libraries(libdevilutionx PRIVATE discord discord_game_sdk)
 endif()
 
+target_link_libraries(libdevilutionx PUBLIC ${LUA_LIBRARIES} sol2::sol2)
+
+if(SCREEN_READER_INTEGRATION AND WIN32)
+  target_compile_definitions(libdevilutionx PRIVATE Tolk)
+endif()
+
 target_link_libraries(libdevilutionx PUBLIC
   Threads::Threads
   DevilutionX::SDL
@@ -286,6 +327,14 @@ target_link_libraries(libdevilutionx PUBLIC
   hoehrmann_utf8
   ${libdevilutionx_DEPS}
 )
+
+if(SCREEN_READER_INTEGRATION)
+  if(WIN32)
+    target_link_libraries(libdevilutionx PUBLIC Tolk)
+  else()
+    target_link_libraries(libdevilutionx PUBLIC speechd)
+  endif()
+endif()
 
 if(NOT USE_SDL1)
   target_link_libraries(libdevilutionx PUBLIC SDL2::SDL2_image)

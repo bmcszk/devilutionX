@@ -1,5 +1,10 @@
 #include "discord.h"
 
+#ifdef _WIN32
+// On Windows, discordsrc-src/cpp/discord.h includes windows.h
+#define NOMINMAX 1
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <discordsrc-src/cpp/discord.h>
 
 #include <algorithm>
@@ -88,8 +93,7 @@ std::string GetLocationString()
 
 std::string GetCharacterString()
 {
-	const std::string_view charClassStr = _(PlayersData[static_cast<int>(MyPlayer->_pClass)].className);
-	return fmt::format(fmt::runtime(_(/* TRANSLATORS: Discord character, i.e. "Lv 6 Warrior" */ "Lv {} {}")), tracked_data.playerLevel, charClassStr);
+	return fmt::format(fmt::runtime(_(/* TRANSLATORS: Discord character, i.e. "Lv 6 Warrior" */ "Lv {} {}")), tracked_data.playerLevel, MyPlayer->getClassName());
 }
 
 std::string GetDetailString()
