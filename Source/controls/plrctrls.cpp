@@ -256,7 +256,7 @@ bool CanTargetMonster(const Monster &monster)
 	return true;
 }
 
-void FindTarget()
+void CheckMonstersNearby()
 {
 	int rotations = 4;
 	int distance = 25;
@@ -289,11 +289,6 @@ void FindTarget()
 		canTalk = newCanTalk;
 		pcursmonst = mi;
 	}
-}
-
-void CheckMonstersNearby()
-{
-	FindTarget();
 }
 
 void CheckPlayerNearby()
@@ -503,7 +498,6 @@ void Interact()
 	}
 
 	Player &myPlayer = *MyPlayer;
-
 	if (leveltype != DTYPE_TOWN && pcursplr != -1 && !myPlayer.friendlyMode) {
 		InteractPlayer();
 		return;
@@ -512,6 +506,12 @@ void Interact()
 	if (ObjectUnderCursor != nullptr) {
 		NetSendCmdLoc(MyPlayerId, true, CMD_OPOBJXY, cursPosition);
 		LastMouseButtonAction = MouseActionType::OperateObject;
+		return;
+	}
+
+	// pickup item
+	if (pcursitem != -1) {
+		NetSendCmdLocParam1(true, CMD_GOTOAGETITEM, cursPosition, pcursitem);
 		return;
 	}
 
