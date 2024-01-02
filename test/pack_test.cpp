@@ -414,6 +414,7 @@ public:
 
 	static void SetUpTestSuite()
 	{
+		LoadSpellData();
 		LoadItemData();
 	}
 };
@@ -953,6 +954,7 @@ public:
 
 	static void SetUpTestSuite()
 	{
+		LoadSpellData();
 		LoadPlayerDataFiles();
 		LoadMonsterData();
 		LoadItemData();
@@ -1038,7 +1040,7 @@ TEST_F(NetPackTest, UnPackNetPlayer_invalid_baseVit)
 
 TEST_F(NetPackTest, UnPackNetPlayer_invalid_numInv)
 {
-	MyPlayer->_pNumInv = InventoryGridCells;
+	MyPlayer->_pNumInv = InventoryGridCells + 1;
 	ASSERT_FALSE(TestNetPackValidation());
 }
 

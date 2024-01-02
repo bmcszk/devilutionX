@@ -40,9 +40,9 @@ jobs:
       uses: lukka/get-cmake@latest
 
     - name: Restore or setup vcpkg
-      uses: lukka/run-vcpkg@v11.3
+      uses: lukka/run-vcpkg@v11.4
       with:
-        vcpkgGitCommitId: '486a4640db740f5994e492eb60748111dfc48de7'
+        vcpkgGitCommitId: '16ee2ecb31788c336ace8bb14c21801efb6836e4'
 
     - name: Fetch test data
       run: |
@@ -61,7 +61,7 @@ jobs:
 
     - name: Upload-Package
       if: ${{ !env.ACT }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: devilutionx.exe
         path: |

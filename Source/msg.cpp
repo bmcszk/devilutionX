@@ -34,6 +34,7 @@
 #include "nthread.h"
 #include "objects.h"
 #include "options.h"
+#include "pack.h"
 #include "pfile.h"
 #include "plrmsg.h"
 #include "spells.h"
@@ -45,7 +46,43 @@
 #include "utils/str_cat.hpp"
 #include "utils/utf8.hpp"
 
+#define ValidateField(logValue, condition)                    \
+	do {                                                      \
+		if (!(condition)) {                                   \
+			LogFailedPacket(#condition, #logValue, logValue); \
+			EventFailedPacket(player._pName);                 \
+			return false;                                     \
+		}                                                     \
+	} while (0)
+
+#define ValidateFields(logValue1, logValue2, condition)                                \
+	do {                                                                               \
+		if (!(condition)) {                                                            \
+			LogFailedPacket(#condition, #logValue1, logValue1, #logValue2, logValue2); \
+			EventFailedPacket(player._pName);                                          \
+			return false;                                                              \
+		}                                                                              \
+	} while (0)
+
 namespace devilution {
+
+void EventFailedPacket(const char *playerName)
+{
+	std::string message = fmt::format("Player '{}' sent an invalid packet.", playerName);
+	EventPlrMsg(message);
+}
+
+template <typename T>
+void LogFailedPacket(const char *condition, const char *name, T value)
+{
+	LogDebug("Remote player packet validation failed: ValidateField({}: {}, {})", name, value, condition);
+}
+
+template <typename T1, typename T2>
+void LogFailedPacket(const char *condition, const char *name1, T1 value1, const char *name2, T2 value2)
+{
+	LogDebug("Remote player packet validation failed: ValidateFields({}: {}, {}: {}, {})", name1, value1, name2, value2, condition);
+}
 
 // #define LOG_RECEIVED_MESSAGES
 
@@ -150,7 +187,7 @@ std::string_view CmdIdString(_cmd_id cmd)
 #endif // LOG_RECEIVED_MESSAGES
 
 struct TMegaPkt {
-	uint32_t spaceLeft;
+	size_t spaceLeft;
 	std::byte data[32000];
 
 	TMegaPkt()
@@ -376,7 +413,7 @@ void PrePacket()
 	}
 }
 
-void SendPacket(size_t pnum, const void *packet, size_t dwSize)
+void SendPacket(uint8_t pnum, const void *packet, size_t dwSize)
 {
 	if (pnum != sgnCurrMegaPlayer) {
 		sgnCurrMegaPlayer = pnum;
@@ -607,7 +644,7 @@ void DeltaImportData(_cmd_id cmd, uint32_t recvOffset)
 	sgbDeltaChunks++;
 }
 
-size_t OnLevelData(int pnum, const TCmd *pCmd)
+size_t OnLevelData(uint8_t pnum, const TCmd *pCmd)
 {
 	const auto &message = *reinterpret_cast<const TCmdPlrInfoHdr *>(pCmd);
 	const uint16_t wBytes = SDL_SwapLE16(message.wBytes);
@@ -841,14 +878,14 @@ void NetSendCmdGItem2(bool usonly, _cmd_id bCmd, uint8_t mast, uint8_t pnum, con
 	tmsg_add((std::byte *)&cmd, sizeof(cmd));
 }
 
-bool NetSendCmdReq2(_cmd_id bCmd, uint8_t mast, uint8_t pnum, const TCmdGItem &item)
+bool NetSendCmdReq2(_cmd_id bCmd, const Player &player, uint8_t pnum, const TCmdGItem &item)
 {
 	TCmdGItem cmd;
 
 	memcpy(&cmd, &item, sizeof(cmd));
 	cmd.bCmd = bCmd;
 	cmd.bPnum = pnum;
-	cmd.bMaster = mast;
+	cmd.bMaster = player.getId();
 
 	int ticks = SDL_GetTicks();
 	if (cmd.dwTime == 0)
@@ -964,14 +1001,30 @@ bool IsGItemValid(const TCmdGItem &message)
 	return IsItemAvailable(static_cast<_item_indexes>(SDL_SwapLE16(message.def.wIndx)));
 }
 
-bool IsPItemValid(const TCmdPItem &message)
+bool IsPItemValid(const TCmdPItem &message, const Player &player)
 {
 	const Point position { message.x, message.y };
 
 	if (!InDungeonBounds(position))
 		return false;
 
-	return IsItemAvailable(static_cast<_item_indexes>(SDL_SwapLE16(message.def.wIndx)));
+	auto idx = static_cast<_item_indexes>(SDL_SwapLE16(message.def.wIndx));
+
+	if (idx != IDI_EAR) {
+		uint16_t creationFlags = SDL_SwapLE16(message.item.wCI);
+		uint32_t dwBuff = SDL_SwapLE16(message.item.dwBuff);
+
+		if (idx != IDI_GOLD)
+			ValidateField(creationFlags, IsCreationFlagComboValid(creationFlags));
+		if ((creationFlags & CF_TOWN) != 0)
+			ValidateField(creationFlags, IsTownItemValid(creationFlags, player));
+		else if ((creationFlags & CF_USEFUL) == CF_UPER15)
+			ValidateFields(creationFlags, dwBuff, IsUniqueMonsterItemValid(creationFlags, dwBuff));
+		else
+			ValidateFields(creationFlags, dwBuff, IsDungeonItemValid(creationFlags, dwBuff));
+	}
+
+	return IsItemAvailable(idx);
 }
 
 void PrepareItemForNetwork(const Item &item, TCmdGItem &message)
@@ -1115,7 +1168,7 @@ size_t OnRequestGetItem(const TCmd *pCmd, Player &player)
 				else
 					InvGetItem(*MyPlayer, ii);
 				SetItemRecord(dwSeed, wCI, wIndx);
-			} else if (!NetSendCmdReq2(CMD_REQUESTGITEM, MyPlayerId, message.bPnum, message)) {
+			} else if (!NetSendCmdReq2(CMD_REQUESTGITEM, *MyPlayer, message.bPnum, message)) {
 				NetSendCmdExtra(message);
 			}
 		}
@@ -1191,7 +1244,7 @@ size_t OnRequestAutoGetItem(const TCmd *pCmd, Player &player)
 				else
 					AutoGetItem(*MyPlayer, &Items[message.bCursitem], message.bCursitem);
 				SetItemRecord(dwSeed, wCI, wIndx);
-			} else if (!NetSendCmdReq2(CMD_REQUESTAGITEM, MyPlayerId, message.bPnum, message)) {
+			} else if (!NetSendCmdReq2(CMD_REQUESTAGITEM, *MyPlayer, message.bPnum, message)) {
 				NetSendCmdExtra(message);
 			}
 		}
@@ -1254,7 +1307,7 @@ size_t OnPutItem(const TCmd *pCmd, Player &player)
 
 	if (gbBufferMsgs == 1) {
 		SendPacket(player, &message, sizeof(message));
-	} else if (IsPItemValid(message)) {
+	} else if (IsPItemValid(message, player)) {
 		const Point position { message.x, message.y };
 		bool isSelf = &player == MyPlayer;
 		const int32_t dwSeed = SDL_SwapLE32(message.def.dwSeed);
@@ -1294,7 +1347,7 @@ size_t OnSyncPutItem(const TCmd *pCmd, Player &player)
 
 	if (gbBufferMsgs == 1)
 		SendPacket(player, &message, sizeof(message));
-	else if (IsPItemValid(message)) {
+	else if (IsPItemValid(message, player)) {
 		const int32_t dwSeed = SDL_SwapLE32(message.def.dwSeed);
 		const uint16_t wCI = SDL_SwapLE16(message.def.wCI);
 		const _item_indexes wIndx = static_cast<_item_indexes>(SDL_SwapLE16(message.def.wIndx));
@@ -1724,7 +1777,7 @@ size_t OnAwakeGolem(const TCmd *pCmd, Player &player)
 				}
 			}
 
-			AddMissile(player.position.tile, position, message._mdir, MissileID::Golem, TARGET_MONSTERS, player.getId(), 0, 1);
+			AddMissile(player.position.tile, position, message._mdir, MissileID::Golem, TARGET_MONSTERS, player, 0, 1);
 		}
 	}
 
@@ -1950,7 +2003,7 @@ size_t OnDropItem(const TCmd *pCmd, Player &player)
 
 	if (gbBufferMsgs == 1) {
 		SendPacket(player, &message, sizeof(message));
-	} else if (IsPItemValid(message)) {
+	} else if (IsPItemValid(message, player)) {
 		DeltaPutItem(message, { message.x, message.y }, player);
 	}
 
@@ -1963,7 +2016,7 @@ size_t OnSpawnItem(const TCmd *pCmd, Player &player)
 
 	if (gbBufferMsgs == 1) {
 		SendPacket(player, &message, sizeof(message));
-	} else if (IsPItemValid(message)) {
+	} else if (IsPItemValid(message, player)) {
 		if (player.isOnActiveLevel() && &player != MyPlayer) {
 			SyncDropItem(message);
 		}
@@ -1997,7 +2050,7 @@ size_t OnPlayerJoinLevel(const TCmd *pCmd, Player &player)
 		return sizeof(message);
 	}
 
-	const uint16_t playerLevel = SDL_SwapLE16(message.wParam1);
+	const uint8_t playerLevel = static_cast<uint8_t>(SDL_SwapLE16(message.wParam1));
 	bool isSetLevel = message.wParam2 != 0;
 	if (!IsValidLevel(playerLevel, isSetLevel) || !InDungeonBounds(position)) {
 		return sizeof(message);
@@ -2042,7 +2095,7 @@ size_t OnActivatePortal(const TCmd *pCmd, Player &player)
 {
 	const auto &message = *reinterpret_cast<const TCmdLocParam3 *>(pCmd);
 	const Point position { message.x, message.y };
-	const uint16_t level = SDL_SwapLE16(message.wParam1);
+	const uint8_t level = static_cast<uint8_t>(SDL_SwapLE16(message.wParam1));
 	const uint16_t dungeonTypeIdx = SDL_SwapLE16(message.wParam2);
 	const bool isSetLevel = message.wParam3 != 0;
 
@@ -2169,7 +2222,7 @@ size_t OnString(const TCmd *pCmd, Player &player)
 {
 	auto *p = (TCmdString *)pCmd;
 
-	int len = strlen(p->str);
+	size_t len = strlen(p->str);
 	if (gbBufferMsgs == 0)
 		SendPlrMsg(player, p->str);
 
@@ -2277,7 +2330,7 @@ size_t OnNakrul(const TCmd *pCmd)
 size_t OnOpenHive(const TCmd *pCmd, Player &player)
 {
 	if (gbBufferMsgs != 1) {
-		AddMissile({ 0, 0 }, { 0, 0 }, Direction::South, MissileID::OpenNest, TARGET_MONSTERS, player.getId(), 0, 0);
+		AddMissile({ 0, 0 }, { 0, 0 }, Direction::South, MissileID::OpenNest, TARGET_MONSTERS, player, 0, 0);
 		TownOpenHive();
 		InitTownTriggers();
 	}
@@ -2330,8 +2383,8 @@ void RecreateItem(const Player &player, const TItem &messageItem, Item &item)
 	item._iMaxCharges = std::clamp<int>(messageItem.bMCh, 0, item._iMaxCharges);
 	item._iCharges = std::clamp<int>(messageItem.bCh, 0, item._iMaxCharges);
 	if (gbIsHellfire) {
-		item._iPLToHit = ClampToHit(item, SDL_SwapLE16(messageItem.wToHit));
-		item._iMaxDam = ClampMaxDam(item, SDL_SwapLE16(messageItem.wMaxDam));
+		item._iPLToHit = ClampToHit(item, static_cast<uint8_t>(SDL_SwapLE16(messageItem.wToHit)));
+		item._iMaxDam = ClampMaxDam(item, static_cast<uint8_t>(SDL_SwapLE16(messageItem.wMaxDam)));
 	}
 	item.dwBuff = dwBuff;
 }
@@ -2341,7 +2394,7 @@ void ClearLastSentPlayerCmd()
 	lastSentPlayerCmd = {};
 }
 
-void msg_send_drop_pkt(int pnum, int reason)
+void msg_send_drop_pkt(uint8_t pnum, int reason)
 {
 	TFakeDropPlr cmd;
 
@@ -2394,7 +2447,7 @@ void run_delta_info()
 	FreePackets();
 }
 
-void DeltaExportData(int pnum)
+void DeltaExportData(uint8_t pnum)
 {
 	for (const auto &[levelNum, deltaLevel] : DeltaLevels) {
 		const size_t bufferSize = 1U                                                      /* marker byte, always 0 */
@@ -2616,7 +2669,7 @@ void DeltaLoadLevel()
 			} else {
 				decode_enemy(monster, deltaLevel.monster[i]._menemy);
 				if (monster.position.tile != Point { 0, 0 } && monster.position.tile != GolemHoldingCell)
-					dMonster[monster.position.tile.x][monster.position.tile.y] = i + 1;
+					monster.occupyTile(monster.position.tile, false);
 				if (monster.type().type == MT_GOLEM) {
 					GolumAi(monster);
 					monster.flags |= (MFLAG_TARGETS_MONSTER | MFLAG_GOLEM);
@@ -2724,7 +2777,7 @@ void NetSendCmdGolem(uint8_t mx, uint8_t my, Direction dir, uint8_t menemy, int 
 	NetSendLoPri(MyPlayerId, (std::byte *)&cmd, sizeof(cmd));
 }
 
-void NetSendCmdLoc(size_t playerId, bool bHiPri, _cmd_id bCmd, Point position)
+void NetSendCmdLoc(uint8_t playerId, bool bHiPri, _cmd_id bCmd, Point position)
 {
 	if (playerId == MyPlayerId && WasPlayerCmdAlreadyRequested(bCmd, position))
 		return;
@@ -2915,8 +2968,10 @@ void NetSendCmdQuest(bool bHiPri, const Quest &quest)
 		NetSendLoPri(MyPlayerId, (std::byte *)&cmd, sizeof(cmd));
 }
 
-void NetSendCmdGItem(bool bHiPri, _cmd_id bCmd, uint8_t pnum, uint8_t ii)
+void NetSendCmdGItem(bool bHiPri, _cmd_id bCmd, const Player &player, uint8_t ii)
 {
+	uint8_t pnum = player.getId();
+
 	TCmdGItem cmd;
 
 	cmd.bCmd = bCmd;
@@ -3027,12 +3082,12 @@ void NetSendCmdChBeltItem(bool bHiPri, int beltIndex)
 		NetSendLoPri(MyPlayerId, (std::byte *)&cmd, sizeof(cmd));
 }
 
-void NetSendCmdDamage(bool bHiPri, uint8_t bPlr, uint32_t dwDam, DamageType damageType)
+void NetSendCmdDamage(bool bHiPri, const Player &player, uint32_t dwDam, DamageType damageType)
 {
 	TCmdDamage cmd;
 
 	cmd.bCmd = CMD_PLRDAMAGE;
-	cmd.bPlr = bPlr;
+	cmd.bPlr = player.getId();
 	cmd.dwDam = dwDam;
 	cmd.damageType = damageType;
 	if (bHiPri)
@@ -3068,7 +3123,7 @@ void delta_close_portal(const Player &player)
 	memset(&sgJunk.portal[player.getId()], 0xFF, sizeof(sgJunk.portal[player.getId()]));
 }
 
-size_t ParseCmd(size_t pnum, const TCmd *pCmd)
+size_t ParseCmd(uint8_t pnum, const TCmd *pCmd)
 {
 	sbLastCmd = pCmd->bCmd;
 	if (sgwPackPlrOffsetTbl[pnum] != 0 && sbLastCmd != CMD_ACK_PLRINFO && sbLastCmd != CMD_SEND_PLRINFO)
@@ -3082,7 +3137,7 @@ size_t ParseCmd(size_t pnum, const TCmd *pCmd)
 
 	switch (pCmd->bCmd) {
 	case CMD_SYNCDATA:
-		return OnSyncData(pCmd, pnum);
+		return OnSyncData(pCmd, player);
 	case CMD_WALKXY:
 		return OnWalk(pCmd, player);
 	case CMD_ADDSTR:

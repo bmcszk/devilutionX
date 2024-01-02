@@ -712,21 +712,16 @@ struct TPkt {
 };
 #pragma pack(pop)
 
-struct TBuffer {
-	uint32_t dwNextWriteOffset;
-	std::byte bData[4096];
-};
-
 extern uint8_t gbBufferMsgs;
 extern int dwRecCount;
 
 void PrepareItemForNetwork(const Item &item, TItem &messageItem);
 void PrepareEarForNetwork(const Item &item, TEar &ear);
 void RecreateItem(const Player &player, const TItem &messageItem, Item &item);
-void msg_send_drop_pkt(int pnum, int reason);
+void msg_send_drop_pkt(uint8_t pnum, int reason);
 bool msg_wait_resync();
 void run_delta_info();
-void DeltaExportData(int pnum);
+void DeltaExportData(uint8_t pnum);
 void DeltaSyncJunk();
 void delta_init();
 void DeltaClearLevel(uint8_t level);
@@ -743,7 +738,7 @@ void DeltaLoadLevel();
 void ClearLastSentPlayerCmd();
 void NetSendCmd(bool bHiPri, _cmd_id bCmd);
 void NetSendCmdGolem(uint8_t mx, uint8_t my, Direction dir, uint8_t menemy, int hp, uint8_t cl);
-void NetSendCmdLoc(size_t playerId, bool bHiPri, _cmd_id bCmd, Point position);
+void NetSendCmdLoc(uint8_t playerId, bool bHiPri, _cmd_id bCmd, Point position);
 void NetSendCmdLocParam1(bool bHiPri, _cmd_id bCmd, Point position, uint16_t wParam1);
 void NetSendCmdLocParam2(bool bHiPri, _cmd_id bCmd, Point position, uint16_t wParam1, uint16_t wParam2);
 void NetSendCmdLocParam3(bool bHiPri, _cmd_id bCmd, Point position, uint16_t wParam1, uint16_t wParam2, uint16_t wParam3);
@@ -753,17 +748,17 @@ void NetSendCmdParam1(bool bHiPri, _cmd_id bCmd, uint16_t wParam1);
 void NetSendCmdParam2(bool bHiPri, _cmd_id bCmd, uint16_t wParam1, uint16_t wParam2);
 void NetSendCmdParam5(bool bHiPri, _cmd_id bCmd, uint16_t wParam1, uint16_t wParam2, uint16_t wParam3, uint16_t wParam4, uint16_t wParam5);
 void NetSendCmdQuest(bool bHiPri, const Quest &quest);
-void NetSendCmdGItem(bool bHiPri, _cmd_id bCmd, uint8_t pnum, uint8_t ii);
+void NetSendCmdGItem(bool bHiPri, _cmd_id bCmd, const Player &player, uint8_t ii);
 void NetSendCmdPItem(bool bHiPri, _cmd_id bCmd, Point position, const Item &item);
 void NetSyncInvItem(const Player &player, int invListIndex);
 void NetSendCmdChItem(bool bHiPri, uint8_t bLoc, bool forceSpellChange = false);
 void NetSendCmdDelItem(bool bHiPri, uint8_t bLoc);
 void NetSendCmdChInvItem(bool bHiPri, int invGridIndex);
 void NetSendCmdChBeltItem(bool bHiPri, int invGridIndex);
-void NetSendCmdDamage(bool bHiPri, uint8_t bPlr, uint32_t dwDam, DamageType damageType);
+void NetSendCmdDamage(bool bHiPri, const Player &player, uint32_t dwDam, DamageType damageType);
 void NetSendCmdMonDmg(bool bHiPri, uint16_t wMon, uint32_t dwDam);
 void NetSendCmdString(uint32_t pmask, const char *pszStr);
 void delta_close_portal(const Player &player);
-size_t ParseCmd(size_t pnum, const TCmd *pCmd);
+size_t ParseCmd(uint8_t pnum, const TCmd *pCmd);
 
 } // namespace devilution

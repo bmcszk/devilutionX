@@ -162,7 +162,7 @@ float GetIniFloat(const char *sectionName, const char *keyName, float defaultVal
 	return (float)GetIni().GetDoubleValue(sectionName, keyName, defaultValue);
 }
 
-bool GetIniValue(std::string_view sectionName, std::string_view keyName, char *string, int stringSize, const char *defaultString = "")
+bool GetIniValue(std::string_view sectionName, std::string_view keyName, char *string, size_t stringSize, const char *defaultString = "")
 {
 	std::string sectionNameStr { sectionName };
 	std::string keyNameStr { keyName };
@@ -941,7 +941,7 @@ std::string_view OptionEntryAudioDevice::GetDeviceName(size_t index) const
 {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	if (index != 0)
-		return SDL_GetAudioDeviceName(index - 1, false);
+		return SDL_GetAudioDeviceName(static_cast<int>(index) - 1, false);
 #endif
 	return "";
 }
@@ -1326,6 +1326,10 @@ KeymapperOptions::KeymapperOptions()
 	keyIDToKeyName.emplace(SDL_BUTTON_MIDDLE | KeymapperMouseButtonMask, "MMOUSE");
 	keyIDToKeyName.emplace(SDL_BUTTON_X1 | KeymapperMouseButtonMask, "X1MOUSE");
 	keyIDToKeyName.emplace(SDL_BUTTON_X2 | KeymapperMouseButtonMask, "X2MOUSE");
+	keyIDToKeyName.emplace(MouseScrollUpButton, "SCROLlUPMOUSE");
+	keyIDToKeyName.emplace(MouseScrollDownButton, "SCROLLDOWNMOUSE");
+	keyIDToKeyName.emplace(MouseScrollLeftButton, "SCROLlLEFTMOUSE");
+	keyIDToKeyName.emplace(MouseScrollRightButton, "SCROLLRIGHTMOUSE");
 
 	keyIDToKeyName.emplace(SDLK_BACKQUOTE, "`");
 	keyIDToKeyName.emplace(SDLK_LEFTBRACKET, "[");
