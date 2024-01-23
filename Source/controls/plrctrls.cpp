@@ -274,8 +274,8 @@ void CheckMonstersNearby()
 			continue;
 		const int newDdistance = GetDistanceRanged(monster.position.future);
 		const int newRotations = GetRotaryDistance(monster.position.future);
-		if (newRotations > 1) {
-			// do not target an enemy the player is not facing
+		if (newRotations > 1 && newDdistance > 1) {
+			// do not target a distant monster the player is not facing
 			continue;
 		}
 		if (pcursmonst != -1 && canTalk == newCanTalk) {
@@ -327,8 +327,8 @@ void CheckPlayerNearby()
 		if (PlayerUnderCursor != nullptr && distance < newDdistance)
 			continue;
 		const int newRotations = GetRotaryDistance(player.position.future);
-		if (newRotations > 1) {
-			// do not target an enemy the player is not facing
+		if (newRotations > 1 && newDdistance > 1) {
+			// do not target a distant enemy the player is not facing
 			continue;
 		}
 		if (PlayerUnderCursor != nullptr && distance == newDdistance && rotations < newRotations)
@@ -424,42 +424,40 @@ bool IsStandingGround()
 	return false;
 }
 
-void InteractMonster()
+bool InteractMonster()
 {
 	Player &myPlayer = *MyPlayer;
 	Point position = Monsters[pcursmonst].position.future;
-	bool near = GetMinDistance(position) < 2;
+	bool isClose = GetMinDistance(position) < 2;
 
 	// talk
 	if (CanTalkToMonst(Monsters[pcursmonst])) {
-		if (!near) {
-			return;
+		if (!isClose) {
+			return false;
 		}
 		NetSendCmdParam1(true, CMD_ATTACKID, pcursmonst);
 		LastMouseButtonAction = MouseActionType::AttackMonsterTarget;
-		return;
+		return true;
 	}
 
 	// shoot
 	if (myPlayer.UsesRangedWeapon()) {
 		NetSendCmdParam1(true, CMD_RATTACKID, pcursmonst);
 		LastMouseButtonAction = MouseActionType::AttackMonsterTarget;
-		return;
+		return true;
 	}
 
 	// attack
-	if (near) {
+	if (isClose) {
 		NetSendCmdParam1(true, CMD_ATTACKID, pcursmonst);
 		LastMouseButtonAction = MouseActionType::AttackMonsterTarget;
-		return;
+		return true;
 	}
 
-	// mock attack
-	NetSendCmdLoc(MyPlayerId, true, CMD_SATTACKXY, position);
-	LastMouseButtonAction = MouseActionType::Attack;
+	return false;
 }
 
-void InteractPlayer()
+bool InteractPlayer()
 {
 	Player &myPlayer = *MyPlayer;
 	Point position = PlayerUnderCursor->position.future;
@@ -469,19 +467,40 @@ void InteractPlayer()
 	if (myPlayer.UsesRangedWeapon()) {
 		NetSendCmdParam1(true, CMD_RATTACKPID, PlayerUnderCursor->getId());
 		LastMouseButtonAction = MouseActionType::AttackPlayerTarget;
-		return;
+		return true;
 	}
 
 	// attack
 	if (GetMinDistance(position) < 2) {
 		NetSendCmdParam1(true, CMD_ATTACKPID, PlayerUnderCursor->getId());
 		LastMouseButtonAction = MouseActionType::AttackPlayerTarget;
-		return;
+		return true;
 	}
 
-	// mock attack
-	NetSendCmdLoc(MyPlayerId, true, CMD_SATTACKXY, position);
-	LastMouseButtonAction = MouseActionType::Attack;
+	return false;
+}
+
+bool InteractMove()
+{
+	Player &myPlayer = *MyPlayer;
+	Point position;
+	if (pcursmissile != nullptr) {
+		position = pcursmissile->position.tile;
+	}
+	if (pcurstrig != -1) {
+		position = trigs[pcurstrig].position;
+	}
+	if (pcursquest != Q_INVALID) {
+		position = Quests[pcursquest].position;
+	}
+
+	if (GetMinDistance(position) < 2) {
+		MakePlrPath(myPlayer, position, true);
+		myPlayer.destAction = ACTION_WALK;
+		return true;
+	}
+
+	return false;
 }
 
 void Interact()
@@ -492,14 +511,14 @@ void Interact()
 	}
 
 	if (pcursmonst != -1) {
-		InteractMonster();
-		return;
+		if (InteractMonster())
+			return;
 	}
 
 	Player &myPlayer = *MyPlayer;
 	if (leveltype != DTYPE_TOWN && PlayerUnderCursor != nullptr && !myPlayer.friendlyMode) {
-		InteractPlayer();
-		return;
+		if (InteractPlayer())
+			return;
 	}
 
 	if (ObjectUnderCursor != nullptr) {
@@ -514,7 +533,13 @@ void Interact()
 		return;
 	}
 
-	// This is triggered only when there is no target.
+	// walk towards the cursor/context object if no target is found
+	if (pcursmissile != nullptr || pcurstrig != -1 || pcursquest != Q_INVALID) {
+		if (InteractMove())
+			return;
+	}
+
+	// lastly make a fake attack
 	if (leveltype != DTYPE_TOWN) {
 		Direction pdir = myPlayer._pdir;
 		AxisDirection moveDir = GetMoveDirection();
