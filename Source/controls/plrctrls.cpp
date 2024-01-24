@@ -480,17 +480,15 @@ bool InteractPlayer()
 	return false;
 }
 
-bool InteractMove()
+bool InteractApproach()
 {
 	Player &myPlayer = *MyPlayer;
 	Point position;
 	if (pcursmissile != nullptr) {
 		position = pcursmissile->position.tile;
-	}
-	if (pcurstrig != -1) {
+	} else if (pcurstrig != -1) {
 		position = trigs[pcurstrig].position;
-	}
-	if (pcursquest != Q_INVALID) {
+	} else if (pcursquest != Q_INVALID) {
 		position = Quests[pcursquest].position;
 	}
 
@@ -535,7 +533,7 @@ void Interact()
 
 	// walk towards the cursor/context object if no target is found
 	if (pcursmissile != nullptr || pcurstrig != -1 || pcursquest != Q_INVALID) {
-		if (InteractMove())
+		if (InteractApproach())
 			return;
 	}
 
