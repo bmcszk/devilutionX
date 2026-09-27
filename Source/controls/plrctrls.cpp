@@ -346,6 +346,10 @@ void CheckPlayerNearby()
 		if (PlayerUnderCursor != nullptr && distance < newDdistance)
 			continue;
 		const int newRotations = GetRotaryDistance(player.position.future);
+		if (newRotations > 1 && newDdistance > 1) {
+			// do not target a distant enemy the player is not facing
+			continue;
+		}
 		if (PlayerUnderCursor != nullptr && distance == newDdistance && rotations < newRotations)
 			continue;
 
