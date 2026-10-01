@@ -207,12 +207,11 @@ void ProcessControllerMotion(const SDL_Event &event)
 	}
 }
 
-AxisDirection GetAnalogStickDirection(float stickX, float stickY)
+AxisDirection GetAnalogStickDirection(float stickX, float stickY, float threshold = StickDirectionThreshold)
 {
 	// avoid sqrt() by comparing squared magnitudes
 	const float magnitudeSquared = (stickX * stickX) + (stickY * stickY);
-	const float thresholdSquared = StickDirectionThreshold * StickDirectionThreshold;
-	if (magnitudeSquared < thresholdSquared)
+	if (magnitudeSquared == 0.0F || magnitudeSquared < threshold * threshold)
 		return { AxisDirectionX_NONE, AxisDirectionY_NONE };
 
 	const float absX = std::fabs(stickX);
@@ -239,6 +238,23 @@ AxisDirection GetAnalogStickDirection(float stickX, float stickY)
 	result.x = stickX > 0 ? AxisDirectionX_RIGHT : AxisDirectionX_LEFT;
 	result.y = stickY > 0 ? AxisDirectionY_UP : AxisDirectionY_DOWN;
 	return result;
+}
+
+float GetStickTurnThreshold()
+{
+	return GetOptions().Controller.fDeadzone + 0.3F;
+}
+
+float GetMoveMagnitude()
+{
+	return std::sqrt((leftStickX * leftStickX) + (leftStickY * leftStickY));
+}
+
+AxisDirection GetLeftStickDirection()
+{
+	// Same sectoring as GetMoveDirection, but with no magnitude cutoff: the caller
+	// (Movement) decides turn-vs-walk by comparing GetMoveMagnitude() against the threshold.
+	return GetAnalogStickDirection(leftStickX, leftStickY, 0.0F);
 }
 
 AxisDirection GetLeftStickOrDpadDirection(bool usePadmapper)

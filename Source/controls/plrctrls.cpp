@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <list>
 
 #ifdef USE_SDL3
 #include <SDL3/SDL_events.h>
@@ -1781,6 +1780,15 @@ void WalkInDir(Player &player, AxisDirection dir)
 	NetSendCmdLoc(player.getId(), true, CMD_WALKXY, delta);
 }
 
+void TurnToDir(Player &player, const AxisDirection &dir)
+{
+	if (!player.CanChangeAction() || (dir.x == AxisDirectionX_NONE && dir.y == AxisDirectionY_NONE))
+		return;
+	const Direction pdir = FaceDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
+	if (player._pdir != pdir)
+		StartStand(player, pdir);
+}
+
 void QuestLogMove(AxisDirection moveDir)
 {
 	static AxisDirectionRepeater repeater;
@@ -1861,9 +1869,15 @@ void Movement(Player &player)
 	if (PadMenuNavigatorActive || PadHotspellMenuActive || InGameMenu())
 		return;
 
-	if (GetLeftStickOrDPadGameUIHandler() == nullptr) {
-		WalkInDir(player, GetMoveDirection());
-	}
+	if (GetLeftStickOrDPadGameUIHandler() != nullptr)
+		return;
+
+	// One stick, one threshold: gentle deflection turns in place, firm deflection walks.
+	const AxisDirection dir = GetLeftStickDirection();
+	if (GetMoveMagnitude() < GetStickTurnThreshold())
+		TurnToDir(player, dir);
+	else
+		WalkInDir(player, dir);
 }
 
 struct RightStickAccumulator {

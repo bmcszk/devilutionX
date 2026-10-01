@@ -28,6 +28,12 @@ extern bool leftStickNeedsScaling, rightStickNeedsScaling;
 // Minimum scaled stick magnitude to register a direction.
 constexpr float StickDirectionThreshold = 0.4F;
 
+// Turn/walk threshold: deadzone + 0.3. Below it the player turns in place; above it the player walks.
+float GetStickTurnThreshold();
+
+// Current scaled left-stick magnitude.
+float GetMoveMagnitude();
+
 // Updates motion state for mouse and joystick sticks.
 void ProcessControllerMotion(const SDL_Event &event);
 
@@ -36,6 +42,9 @@ bool IsControllerMotion(const SDL_Event &event);
 
 // Returns direction of the left thumb stick or DPad (if allow_dpad = true).
 AxisDirection GetLeftStickOrDpadDirection(bool usePadmapper);
+
+// Direction of the left stick with no magnitude cutoff (sectoring shared with GetMoveDirection).
+AxisDirection GetLeftStickDirection();
 
 // Simulates right-stick movement based on input from padmapper mouse movement actions.
 void SimulateRightStickWithPadmapper(ControllerButtonEvent ctrlEvent);
