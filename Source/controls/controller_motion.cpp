@@ -207,59 +207,54 @@ void ProcessControllerMotion(const SDL_Event &event)
 	}
 }
 
-AxisDirection GetAnalogStickDirection(float stickX, float stickY, float threshold = StickDirectionThreshold)
+AxisDirection GetLeftStickDirection()
 {
 	// avoid sqrt() by comparing squared magnitudes
-	const float magnitudeSquared = (stickX * stickX) + (stickY * stickY);
-	if (magnitudeSquared == 0.0F || magnitudeSquared < threshold * threshold)
+	const float magnitudeSquared = (leftStickX * leftStickX) + (leftStickY * leftStickY);
+	if (magnitudeSquared == 0.0F)
 		return { AxisDirectionX_NONE, AxisDirectionY_NONE };
 
-	const float absX = std::fabs(stickX);
-	const float absY = std::fabs(stickY);
+	const float absX = std::fabs(leftStickX);
+	const float absY = std::fabs(leftStickY);
 	AxisDirection result { AxisDirectionX_NONE, AxisDirectionY_NONE };
 
 	// 8-way sectoring with 22.5° cutoffs
 	constexpr float DiagonalCutoff = 0.41421356F; // tan(22.5°)
 	if (absX == 0.0F) {
-		result.y = stickY > 0 ? AxisDirectionY_UP : AxisDirectionY_DOWN;
+		result.y = leftStickY > 0 ? AxisDirectionY_UP : AxisDirectionY_DOWN;
 		return result;
 	}
 
 	const float ratio = absY / absX;
 	if (ratio <= DiagonalCutoff) {
-		result.x = stickX > 0 ? AxisDirectionX_RIGHT : AxisDirectionX_LEFT;
+		result.x = leftStickX > 0 ? AxisDirectionX_RIGHT : AxisDirectionX_LEFT;
 		return result;
 	}
 	if (ratio >= 1.0F / DiagonalCutoff) {
-		result.y = stickY > 0 ? AxisDirectionY_UP : AxisDirectionY_DOWN;
+		result.y = leftStickY > 0 ? AxisDirectionY_UP : AxisDirectionY_DOWN;
 		return result;
 	}
 
-	result.x = stickX > 0 ? AxisDirectionX_RIGHT : AxisDirectionX_LEFT;
-	result.y = stickY > 0 ? AxisDirectionY_UP : AxisDirectionY_DOWN;
+	result.x = leftStickX > 0 ? AxisDirectionX_RIGHT : AxisDirectionX_LEFT;
+	result.y = leftStickY > 0 ? AxisDirectionY_UP : AxisDirectionY_DOWN;
 	return result;
 }
 
-float GetStickTurnThreshold()
-{
-	return GetOptions().Controller.fDeadzone + 0.3F;
-}
-
-float GetMoveMagnitude()
+float GetLeftStickMagnitude()
 {
 	return std::sqrt((leftStickX * leftStickX) + (leftStickY * leftStickY));
 }
 
-AxisDirection GetLeftStickDirection()
-{
-	// Same sectoring as GetMoveDirection, but with no magnitude cutoff: the caller
-	// (Movement) decides turn-vs-walk by comparing GetMoveMagnitude() against the threshold.
-	return GetAnalogStickDirection(leftStickX, leftStickY, 0.0F);
-}
-
 AxisDirection GetLeftStickOrDpadDirection(bool usePadmapper)
 {
-	AxisDirection result = GetAnalogStickDirection(leftStickX, leftStickY);
+	AxisDirection result = GetLeftStickDirection();
+
+	// The stick must be pushed firmly to register a direction.
+	const float magnitudeSquared = (leftStickX * leftStickX) + (leftStickY * leftStickY);
+	if (magnitudeSquared < StickDirectionThreshold * StickDirectionThreshold) {
+		result.x = AxisDirectionX_NONE;
+		result.y = AxisDirectionY_NONE;
+	}
 
 	bool isUpPressed = false;
 	bool isDownPressed = false;

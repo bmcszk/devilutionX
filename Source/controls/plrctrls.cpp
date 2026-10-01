@@ -558,7 +558,7 @@ void Interact()
 	// lastly make a fake attack
 	if (leveltype != DTYPE_TOWN) {
 		Direction pdir = myPlayer._pdir;
-		const AxisDirection moveDir = GetMoveDirection();
+		const AxisDirection moveDir = GetLeftStickOrDpadDirection(true);
 		const bool motion = moveDir.x != AxisDirectionX_NONE || moveDir.y != AxisDirectionY_NONE;
 		if (motion) {
 			pdir = FaceDir[static_cast<std::size_t>(moveDir.x)][static_cast<std::size_t>(moveDir.y)];
@@ -1874,7 +1874,7 @@ void Movement(Player &player)
 
 	// One stick, one threshold: gentle deflection turns in place, firm deflection walks.
 	const AxisDirection dir = GetLeftStickDirection();
-	if (GetMoveMagnitude() < GetStickTurnThreshold())
+	if (GetLeftStickMagnitude() < GetOptions().Controller.fDeadzone + 0.3F)
 		TurnToDir(player, dir);
 	else
 		WalkInDir(player, dir);
