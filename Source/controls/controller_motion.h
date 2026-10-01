@@ -25,10 +25,10 @@ extern float leftStickX, leftStickY, rightStickX, rightStickY;
 // Whether stick positions have been updated and need rescaling.
 extern bool leftStickNeedsScaling, rightStickNeedsScaling;
 
-// Left-stick movement mechanism: from standstill, below the turn threshold the player turns
-// in place, at/above it they walk. Once walking, the player keeps walking until the stick is
-// fully released (easing off never cuts the walk mid-stride).
-constexpr float StickTurnMargin = 0.45F; // added to the deadzone to form the turn threshold
+// Left-stick movement mechanism: any deflection beyond the deadzone turns the player in place,
+// a firm push (deadzone + StickWalkMargin) walks. Once walking, the player keeps walking until
+// the stick is fully released (easing off never cuts the walk mid-stride).
+constexpr float StickWalkMargin = 0.45F; // added to the deadzone to form the walk threshold
 
 // Minimum scaled stick magnitude to register a direction (firm-push gate for dpad/padmapper
 // movement and fake-attack suppression; a separate mechanism from the turn/walk thresholds above).
@@ -37,8 +37,8 @@ constexpr float StickDirectionThreshold = 0.4F;
 // Current scaled left-stick magnitude.
 float GetLeftStickMagnitude();
 
-// Left-stick turn/walk boundary: deadzone + StickTurnMargin (deadzone-dependent, hence not constexpr).
-float GetStickTurnThreshold();
+// Left-stick walk threshold: deadzone + StickWalkMargin (deadzone-dependent, hence not constexpr).
+float GetStickWalkThreshold();
 
 // Updates motion state for mouse and joystick sticks.
 void ProcessControllerMotion(const SDL_Event &event);

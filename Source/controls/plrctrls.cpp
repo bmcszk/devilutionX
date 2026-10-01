@@ -1872,21 +1872,21 @@ void Movement(Player &player)
 	if (GetLeftStickOrDPadGameUIHandler() != nullptr)
 		return;
 
-	// One stick, two modes. From standstill: gentle deflection turns in place, firm deflection
-	// walks. Once walking, easing off does not stop the player - only releasing the stick does.
-	// (Mid-walk stops were the camera-jump: walk scroll cut dead, then StartStand snapped the
-	// character. There is no analog speed in the engine, so keep walking until release.)
+	// One stick, two modes: any deflection turns in place, a firm push walks. Once walking,
+	// easing off does not stop the player - only releasing the stick does. (Mid-walk stops were
+	// the camera-jump: walk scroll cut dead, then StartStand snapped the character. There is no
+	// analog speed in the engine, so keep walking until release.)
 	const AxisDirection dir = GetLeftStickDirection();
 	const float magnitude = GetLeftStickMagnitude();
 	static bool walking = false;
-	if (!walking && magnitude >= GetStickTurnThreshold())
-		walking = true;
-	if (walking && magnitude > 0.0F) {
-		WalkInDir(player, dir);
-	} else {
+	if (magnitude == 0.0F)
 		walking = false;
+	else if (!walking && magnitude >= GetStickWalkThreshold())
+		walking = true;
+	if (walking)
+		WalkInDir(player, dir);
+	else
 		TurnToDir(player, dir);
-	}
 }
 
 struct RightStickAccumulator {
