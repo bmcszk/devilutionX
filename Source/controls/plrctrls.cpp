@@ -1878,8 +1878,8 @@ void Movement(Player &player)
 	const AxisDirection dir = GetLeftStickDirection();
 	const float magnitude = GetLeftStickMagnitude();
 	static bool walking = false;
-	const float turnThreshold = GetOptions().Controller.fDeadzone + 0.3F;
-	if (walking && magnitude >= turnThreshold - 0.05F) {
+	const float turnThreshold = GetStickTurnThreshold();
+	if (walking && magnitude >= turnThreshold - StickWalkHysteresis) {
 		WalkInDir(player, dir);
 	} else if (!walking && magnitude >= turnThreshold) {
 		walking = true;

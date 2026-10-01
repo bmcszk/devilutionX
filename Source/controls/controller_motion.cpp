@@ -245,6 +245,11 @@ float GetLeftStickMagnitude()
 	return std::sqrt((leftStickX * leftStickX) + (leftStickY * leftStickY));
 }
 
+float GetStickTurnThreshold()
+{
+	return GetOptions().Controller.fDeadzone + StickTurnMargin;
+}
+
 AxisDirection GetLeftStickOrDpadDirection(bool usePadmapper)
 {
 	AxisDirection result = GetLeftStickDirection();
