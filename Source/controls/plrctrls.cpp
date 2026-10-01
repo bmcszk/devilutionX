@@ -1872,17 +1872,16 @@ void Movement(Player &player)
 	if (GetLeftStickOrDPadGameUIHandler() != nullptr)
 		return;
 
-	// Gentle deflection turns in place, firm deflection walks. The turn threshold has a small
-	// hysteresis band so stick jitter at the boundary cannot flip walk on/off every other frame
-	// (that made the camera pan for a frame and snap back).
+	// One stick, two modes. From standstill: gentle deflection turns in place, firm deflection
+	// walks. Once walking, easing off does not stop the player - only releasing the stick does.
+	// (Mid-walk stops were the camera-jump: walk scroll cut dead, then StartStand snapped the
+	// character. There is no analog speed in the engine, so keep walking until release.)
 	const AxisDirection dir = GetLeftStickDirection();
 	const float magnitude = GetLeftStickMagnitude();
 	static bool walking = false;
-	const float turnThreshold = GetStickTurnThreshold();
-	if (walking && magnitude >= turnThreshold - StickWalkHysteresis) {
-		WalkInDir(player, dir);
-	} else if (!walking && magnitude >= turnThreshold) {
+	if (!walking && magnitude >= GetStickTurnThreshold())
 		walking = true;
+	if (walking && magnitude > 0.0F) {
 		WalkInDir(player, dir);
 	} else {
 		walking = false;

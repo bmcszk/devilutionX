@@ -25,11 +25,10 @@ extern float leftStickX, leftStickY, rightStickX, rightStickY;
 // Whether stick positions have been updated and need rescaling.
 extern bool leftStickNeedsScaling, rightStickNeedsScaling;
 
-// Left-stick movement mechanism: below the turn threshold the player turns in place, at/above it
-// they walk. StickWalkHysteresis keeps walk engaged slightly below the turn threshold so jitter
-// at the boundary cannot flicker between the two modes.
-constexpr float StickTurnMargin = 0.3F;      // added to the deadzone to form the turn threshold
-constexpr float StickWalkHysteresis = 0.05F; // walk persists until magnitude drops this far below the turn threshold
+// Left-stick movement mechanism: from standstill, below the turn threshold the player turns
+// in place, at/above it they walk. Once walking, the player keeps walking until the stick is
+// fully released (easing off never cuts the walk mid-stride).
+constexpr float StickTurnMargin = 0.3F; // added to the deadzone to form the turn threshold
 
 // Minimum scaled stick magnitude to register a direction (firm-push gate for dpad/padmapper
 // movement and fake-attack suppression; a separate mechanism from the turn/walk thresholds above).
