@@ -1872,12 +1872,22 @@ void Movement(Player &player)
 	if (GetLeftStickOrDPadGameUIHandler() != nullptr)
 		return;
 
-	// One stick, one threshold: gentle deflection turns in place, firm deflection walks.
+	// Gentle deflection turns in place, firm deflection walks. The turn threshold has a small
+	// hysteresis band so stick jitter at the boundary cannot flip walk on/off every other frame
+	// (that made the camera pan for a frame and snap back).
 	const AxisDirection dir = GetLeftStickDirection();
-	if (GetLeftStickMagnitude() < GetOptions().Controller.fDeadzone + 0.3F)
-		TurnToDir(player, dir);
-	else
+	const float magnitude = GetLeftStickMagnitude();
+	static bool walking = false;
+	const float turnThreshold = GetOptions().Controller.fDeadzone + 0.3F;
+	if (walking && magnitude >= turnThreshold - 0.05F) {
 		WalkInDir(player, dir);
+	} else if (!walking && magnitude >= turnThreshold) {
+		walking = true;
+		WalkInDir(player, dir);
+	} else {
+		walking = false;
+		TurnToDir(player, dir);
+	}
 }
 
 struct RightStickAccumulator {
