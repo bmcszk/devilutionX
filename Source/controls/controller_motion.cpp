@@ -256,7 +256,7 @@ AxisDirection GetLeftStickOrDpadDirection(bool usePadmapper)
 
 	// The stick must be pushed firmly to register a direction.
 	const float magnitudeSquared = (leftStickX * leftStickX) + (leftStickY * leftStickY);
-	if (magnitudeSquared < StickDirectionThreshold * StickDirectionThreshold) {
+	if (magnitudeSquared < GetStickWalkThreshold() * GetStickWalkThreshold()) {
 		result.x = AxisDirectionX_NONE;
 		result.y = AxisDirectionY_NONE;
 	}

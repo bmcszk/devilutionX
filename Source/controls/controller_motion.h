@@ -30,10 +30,6 @@ extern bool leftStickNeedsScaling, rightStickNeedsScaling;
 // the stick is fully released (easing off never cuts the walk mid-stride).
 constexpr float StickWalkMargin = 0.45F; // added to the deadzone to form the walk threshold
 
-// Minimum scaled stick magnitude to register a direction (firm-push gate for dpad/padmapper
-// movement and fake-attack suppression; a separate mechanism from the turn/walk thresholds above).
-constexpr float StickDirectionThreshold = 0.4F;
-
 // Current scaled left-stick magnitude.
 float GetLeftStickMagnitude();
 
