@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <list>
 
 #ifdef USE_SDL3
 #include <SDL3/SDL_events.h>
@@ -559,7 +558,7 @@ void Interact()
 	// lastly make a fake attack
 	if (leveltype != DTYPE_TOWN) {
 		Direction pdir = myPlayer._pdir;
-		const AxisDirection moveDir = GetMoveDirection();
+		const AxisDirection moveDir = GetLeftStickOrDpadDirection(true);
 		const bool motion = moveDir.x != AxisDirectionX_NONE || moveDir.y != AxisDirectionY_NONE;
 		if (motion) {
 			pdir = FaceDir[static_cast<std::size_t>(moveDir.x)][static_cast<std::size_t>(moveDir.y)];
@@ -1781,6 +1780,15 @@ void WalkInDir(Player &player, AxisDirection dir)
 	NetSendCmdLoc(player.getId(), true, CMD_WALKXY, delta);
 }
 
+void TurnToDir(Player &player, const AxisDirection &dir)
+{
+	if (dir.x == AxisDirectionX_NONE && dir.y == AxisDirectionY_NONE)
+		return;
+	// Facing change only: no animation, no mode switch - interrupting the current action
+	// just to turn was the "stand ground" stutter.
+	player._pdir = FaceDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
+}
+
 void QuestLogMove(AxisDirection moveDir)
 {
 	static AxisDirectionRepeater repeater;
@@ -1861,9 +1869,24 @@ void Movement(Player &player)
 	if (PadMenuNavigatorActive || PadHotspellMenuActive || InGameMenu())
 		return;
 
-	if (GetLeftStickOrDPadGameUIHandler() == nullptr) {
-		WalkInDir(player, GetMoveDirection());
-	}
+	if (GetLeftStickOrDPadGameUIHandler() != nullptr)
+		return;
+
+	// One stick, two modes: any deflection turns in place, a firm push walks. Once walking,
+	// easing off does not stop the player - only releasing the stick does. (Mid-walk stops were
+	// the camera-jump: walk scroll cut dead, then StartStand snapped the character. There is no
+	// analog speed in the engine, so keep walking until release.)
+	const AxisDirection dir = GetLeftStickDirection();
+	const float magnitude = GetLeftStickMagnitude();
+	static bool walking = false;
+	if (magnitude == 0.0F)
+		walking = false;
+	else if (!walking && magnitude >= GetStickWalkThreshold())
+		walking = true;
+	if (walking)
+		WalkInDir(player, dir);
+	else
+		TurnToDir(player, dir);
 }
 
 struct RightStickAccumulator {
@@ -1905,7 +1928,7 @@ bool IsStickMovementSignificant()
 {
 	// avoid sqrt() by comparing squared magnitudes
 	const float leftStickMagnitudeSquared = (leftStickX * leftStickX) + (leftStickY * leftStickY);
-	const float thresholdSquared = StickDirectionThreshold * StickDirectionThreshold;
+	const float thresholdSquared = GetStickWalkThreshold() * GetStickWalkThreshold();
 
 	return leftStickMagnitudeSquared >= thresholdSquared
 	    || rightStickX != 0 || rightStickY != 0;
