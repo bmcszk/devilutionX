@@ -28,7 +28,7 @@ extern bool leftStickNeedsScaling, rightStickNeedsScaling;
 // Left-stick movement mechanism: any deflection beyond the deadzone turns the player in place,
 // a firm push (deadzone + StickWalkMargin) walks. Once walking, the player keeps walking until
 // the stick is fully released (easing off never cuts the walk mid-stride).
-constexpr float StickWalkMargin = 0.45F; // added to the deadzone to form the walk threshold
+constexpr float StickWalkMargin = 0.60F; // added to the deadzone to form the walk threshold
 
 // Current scaled left-stick magnitude.
 float GetLeftStickMagnitude();

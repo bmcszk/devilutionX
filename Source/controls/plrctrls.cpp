@@ -1782,11 +1782,11 @@ void WalkInDir(Player &player, AxisDirection dir)
 
 void TurnToDir(Player &player, const AxisDirection &dir)
 {
-	if (!player.CanChangeAction() || (dir.x == AxisDirectionX_NONE && dir.y == AxisDirectionY_NONE))
+	if (dir.x == AxisDirectionX_NONE && dir.y == AxisDirectionY_NONE)
 		return;
-	const Direction pdir = FaceDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
-	if (player._pdir != pdir)
-		StartStand(player, pdir);
+	// Facing change only: no animation, no mode switch - interrupting the current action
+	// just to turn was the "stand ground" stutter.
+	player._pdir = FaceDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
 }
 
 void QuestLogMove(AxisDirection moveDir)
