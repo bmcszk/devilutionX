@@ -557,18 +557,10 @@ void Interact()
 	}
 
 	// lastly make a fake attack
-	if (leveltype != DTYPE_TOWN) {
-		Direction pdir = myPlayer._pdir;
-		const AxisDirection moveDir = GetMoveDirection();
-		const bool motion = moveDir.x != AxisDirectionX_NONE || moveDir.y != AxisDirectionY_NONE;
-		if (motion) {
-			pdir = FaceDir[static_cast<std::size_t>(moveDir.x)][static_cast<std::size_t>(moveDir.y)];
-		}
-		Point position = myPlayer.position.tile + pdir;
-
+	if (leveltype != DTYPE_TOWN && !myPlayer.isWalking() && myPlayer.CanChangeAction()) {
+		const Point position = myPlayer.position.tile + myPlayer._pdir;
 		NetSendCmdLoc(MyPlayerId, true, myPlayer.UsesRangedWeapon() ? CMD_RATTACKXY : CMD_SATTACKXY, position);
 		LastPlayerAction = PlayerActionType::Attack;
-		return;
 	}
 }
 
@@ -1781,6 +1773,14 @@ void WalkInDir(Player &player, AxisDirection dir)
 	NetSendCmdLoc(player.getId(), true, CMD_WALKXY, delta);
 }
 
+void TurnToDir(Player &player, Direction dir)
+{
+	if (player.isWalking() || !player.CanChangeAction() || dir == Direction::NoDirection)
+		return;
+	player._pdir = dir;
+	StartStand(player, dir);
+}
+
 void QuestLogMove(AxisDirection moveDir)
 {
 	static AxisDirectionRepeater repeater;
@@ -1861,8 +1861,21 @@ void Movement(Player &player)
 	if (PadMenuNavigatorActive || PadHotspellMenuActive || InGameMenu())
 		return;
 
-	if (GetLeftStickOrDPadGameUIHandler() == nullptr) {
-		WalkInDir(player, GetMoveDirection());
+	if (GetLeftStickOrDPadGameUIHandler() != nullptr)
+		return;
+
+	// Gentle deflection turns in place, a firm push walks.
+	const AxisDirection dir = GetAnalogStickDirection(leftStickX, leftStickY);
+	const Direction pdir = FaceDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
+	switch (GetAnalogStickPush(leftStickX, leftStickY)) {
+	case StickPush::Firm:
+		WalkInDir(player, dir);
+		break;
+	case StickPush::Weak:
+		TurnToDir(player, pdir);
+		break;
+	case StickPush::None:
+		break;
 	}
 }
 
@@ -1903,11 +1916,7 @@ struct RightStickAccumulator {
 
 bool IsStickMovementSignificant()
 {
-	// avoid sqrt() by comparing squared magnitudes
-	const float leftStickMagnitudeSquared = (leftStickX * leftStickX) + (leftStickY * leftStickY);
-	const float thresholdSquared = StickDirectionThreshold * StickDirectionThreshold;
-
-	return leftStickMagnitudeSquared >= thresholdSquared
+	return GetAnalogStickPush(leftStickX, leftStickY) == StickPush::Firm
 	    || rightStickX != 0 || rightStickY != 0;
 }
 
