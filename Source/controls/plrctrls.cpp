@@ -558,7 +558,10 @@ void Interact()
 
 	// lastly make a fake attack
 	if (leveltype != DTYPE_TOWN && !myPlayer.isWalking() && myPlayer.CanChangeAction()) {
-		const Point position = myPlayer.position.tile + myPlayer._pdir;
+		const AxisDirection moveDir = GetLeftStickOrDpadDirection(true);
+		if (moveDir.x == AxisDirectionX_NONE && moveDir.y == AxisDirectionY_NONE)
+			return;
+		const Point position = myPlayer.position.tile + FaceDir[static_cast<std::size_t>(moveDir.x)][static_cast<std::size_t>(moveDir.y)];
 		NetSendCmdLoc(MyPlayerId, true, myPlayer.UsesRangedWeapon() ? CMD_RATTACKXY : CMD_SATTACKXY, position);
 		LastPlayerAction = PlayerActionType::Attack;
 	}
