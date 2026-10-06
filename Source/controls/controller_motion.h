@@ -25,8 +25,19 @@ extern float leftStickX, leftStickY, rightStickX, rightStickY;
 // Whether stick positions have been updated and need rescaling.
 extern bool leftStickNeedsScaling, rightStickNeedsScaling;
 
-// Minimum scaled stick magnitude to register a direction.
-constexpr float StickDirectionThreshold = 0.4F;
+// Minimum scaled stick magnitude to walk; below it, the character only turns in place.
+constexpr float StickDirectionThreshold = 0.6F;
+constexpr float StickDirectionThresholdSquared = StickDirectionThreshold * StickDirectionThreshold;
+
+// How hard the left stick is pushed.
+enum class StickPush : uint8_t {
+	None, // inside the deadzone
+	Weak, // deflected, but below the walk threshold
+	Firm, // at or above the walk threshold
+};
+
+StickPush GetAnalogStickPush(float stickX, float stickY);
+AxisDirection GetAnalogStickDirection(float stickX, float stickY);
 
 // Updates motion state for mouse and joystick sticks.
 void ProcessControllerMotion(const SDL_Event &event);

@@ -207,14 +207,18 @@ void ProcessControllerMotion(const SDL_Event &event)
 	}
 }
 
+StickPush GetAnalogStickPush(float stickX, float stickY)
+{
+	// avoid sqrt() by comparing squared magnitudes; the deadzone is already applied
+	// by ScaleJoystickAxes, so a zero stick here means "no push"
+	const float magnitudeSquared = (stickX * stickX) + (stickY * stickY);
+	if (magnitudeSquared == 0.0F)
+		return StickPush::None;
+	return magnitudeSquared >= StickDirectionThresholdSquared ? StickPush::Firm : StickPush::Weak;
+}
+
 AxisDirection GetAnalogStickDirection(float stickX, float stickY)
 {
-	// avoid sqrt() by comparing squared magnitudes
-	const float magnitudeSquared = (stickX * stickX) + (stickY * stickY);
-	const float thresholdSquared = StickDirectionThreshold * StickDirectionThreshold;
-	if (magnitudeSquared < thresholdSquared)
-		return { AxisDirectionX_NONE, AxisDirectionY_NONE };
-
 	const float absX = std::fabs(stickX);
 	const float absY = std::fabs(stickY);
 	AxisDirection result { AxisDirectionX_NONE, AxisDirectionY_NONE };
@@ -243,7 +247,9 @@ AxisDirection GetAnalogStickDirection(float stickX, float stickY)
 
 AxisDirection GetLeftStickOrDpadDirection(bool usePadmapper)
 {
-	AxisDirection result = GetAnalogStickDirection(leftStickX, leftStickY);
+	AxisDirection result { AxisDirectionX_NONE, AxisDirectionY_NONE };
+	if (GetAnalogStickPush(leftStickX, leftStickY) == StickPush::Firm)
+		result = GetAnalogStickDirection(leftStickX, leftStickY);
 
 	bool isUpPressed = false;
 	bool isDownPressed = false;

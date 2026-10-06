@@ -366,11 +366,6 @@ bool IsSimulatedMouseClickBinding(ControllerButtonEvent ctrlEvent)
 	return IsAnyOf(actionName, "LeftMouseClick1", "LeftMouseClick2", "RightMouseClick1", "RightMouseClick2");
 }
 
-AxisDirection GetMoveDirection()
-{
-	return GetLeftStickOrDpadDirection(true);
-}
-
 bool HandleControllerButtonEvent(const SDL_Event &event, const ControllerButtonEvent ctrlEvent, GameAction &action)
 {
 	if (ctrlEvent.button == ControllerButton_IGNORE) {
