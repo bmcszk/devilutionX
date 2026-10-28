@@ -272,6 +272,9 @@ bool CanTargetMonster(const Monster &monster)
 
 void FindTarget()
 {
+	// Ranged weapons target the enemy closest to the aim direction, melee
+	// weapons target the closest enemy.
+	const bool ranged = MyPlayer->UsesRangedWeapon();
 	int rotations = 4;
 	int distance = 25;
 	bool canTalk = false;
@@ -288,15 +291,18 @@ void FindTarget()
 			continue;
 		const int newDdistance = GetDistanceRanged(monster.position.future);
 		const int newRotations = GetRotaryDistance(monster.position.future);
-		if (newRotations > 1) {
-			// do not target an enemy the player is not facing
-			continue;
-		}
 		if (pcursmonst != -1 && canTalk == newCanTalk) {
-			if (distance < newDdistance)
-				continue;
-			if (distance == newDdistance && rotations < newRotations)
-				continue;
+			if (ranged) {
+				if (newRotations > rotations)
+					continue;
+				if (newRotations == rotations && newDdistance > distance)
+					continue;
+			} else {
+				if (newDdistance > distance)
+					continue;
+				if (newDdistance == distance && newRotations > rotations)
+					continue;
+			}
 		}
 		distance = newDdistance;
 		rotations = newRotations;
