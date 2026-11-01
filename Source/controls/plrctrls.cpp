@@ -274,7 +274,7 @@ void FindTarget()
 {
 	// Ranged weapons target the enemy closest to the aim direction, melee
 	// weapons target the closest enemy.
-	const bool ranged = MyPlayer->UsesRangedWeapon();
+	const bool ranged = MyPlayer->UsesRangedWeapon() || HasRangedSpell();
 	int rotations = 4;
 	int distance = 25;
 	bool canTalk = false;
